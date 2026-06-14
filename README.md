@@ -2,8 +2,6 @@
 
 **Pedal Harp Glissando Simulator** — For composers, harpists, and the simply curious. Whether you're writing idiomatic glissandi without access to a pedal harp, exploring the instrument's surprising range of possible glisses, understanding how it works, or just enjoy listening to harp sounds, Glissie is for you.
 
-Design by Yijun Lin. Vibe coded with [Claude.ai](https://claude.ai). · [github.com/harpbelle/glissie](https://github.com/harpbelle/glissie)
-
 ## What it does
 
 - **Pedal board** D C B for the left foot, E F G A for the right — with flat (up) / natural (middle) / sharp (down) positions. Click to bounce a pedal through its positions, or drag it.
@@ -16,7 +14,7 @@ Design by Yijun Lin. Vibe coded with [Claude.ai](https://claude.ai). · [github.
 ## Credits
 
 - **Audio**: Concert Harp from the [Versilian Community Sample Library](https://github.com/sgossner/VCSL) (CC0 1.0).
-- **Code & design**: Yijun Lin, with Claude (Anthropic).
+- **Code & design**: Yijun Lin, vibe coded with [Claude.ai](https://claude.ai) (Anthropic).
 
 ## Licence
 
