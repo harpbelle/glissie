@@ -196,6 +196,25 @@ const HARM_MINOR_DEFS = [
   { chip: "A♯/B♭", rootL: "B", p: { D:-1, C:0,  B:-1, E:-1, F:0,  G:-1, A:0 } },
   { chip: "B",     rootL: "B", p: { D:0,  C:1,  B:0,  E:0,  F:1,  G:0,  A:1 } },
 ];
+// Melodic minor, ascending form (1 2 ♭3 4 5 6 7): all 12 roots. Equivalent to
+// the major scale with a lowered 3rd (a.k.a. "jazz minor"). The descending form
+// is the natural minor, already listed above, so only the ascending form is new.
+// G♯/D♯/A♯ spellings would need double-sharps, so their flat-side enharmonic
+// spellings are used; identical pitches.
+const MELODIC_MINOR_DEFS = [
+  { chip: "C",     rootL: "C", p: { D:0,  C:0,  B:0,  E:-1, F:0,  G:0,  A:0 } },
+  { chip: "C♯/D♭", rootL: "C", p: { D:1,  C:1,  B:1,  E:0,  F:1,  G:1,  A:1 } },
+  { chip: "D",     rootL: "D", p: { D:0,  C:1,  B:0,  E:0,  F:0,  G:0,  A:0 } },
+  { chip: "D♯/E♭", rootL: "E", p: { D:0,  C:0,  B:-1, E:-1, F:0,  G:-1, A:-1 } },
+  { chip: "E",     rootL: "E", p: { D:1,  C:1,  B:0,  E:0,  F:1,  G:0,  A:0 } },
+  { chip: "F",     rootL: "F", p: { D:0,  C:0,  B:-1, E:0,  F:0,  G:0,  A:-1 } },
+  { chip: "F♯/G♭", rootL: "F", p: { D:1,  C:1,  B:0,  E:1,  F:1,  G:1,  A:0 } },
+  { chip: "G",     rootL: "G", p: { D:0,  C:0,  B:-1, E:0,  F:1,  G:0,  A:0 } },
+  { chip: "G♯/A♭", rootL: "A", p: { D:-1, C:-1, B:-1, E:-1, F:0,  G:0,  A:-1 } },
+  { chip: "A",     rootL: "A", p: { D:0,  C:0,  B:0,  E:0,  F:1,  G:1,  A:0 } },
+  { chip: "A♯/B♭", rootL: "B", p: { D:-1, C:0,  B:-1, E:-1, F:0,  G:0,  A:0 } },
+  { chip: "B",     rootL: "B", p: { D:0,  C:1,  B:0,  E:0,  F:1,  G:1,  A:1 } },
+];
 // Hungarian minor (1, 2, ♭3, ♯4, 5, ♭6, 7): 11 of 12 roots; C♯/D♭ is
 // impossible (its set forces B♯ and F♭, leaving the E string with no pitch).
 const HUNGARIAN_DEFS = [
@@ -408,6 +427,12 @@ const PRESET_CATEGORIES = [
     })),
   },
   {
+    category: "Minor (melodic, ascending)",
+    items: MELODIC_MINOR_DEFS.map(d => ({
+      chip: d.chip, name: `${d.chip} melodic minor (ascending)`, rootL: d.rootL, pedals: { ...d.p },
+    })),
+  },
+  {
     category: "Hungarian major",
     items: HUNG_MAJOR_DEFS.map(d => ({
       chip: d.chip, name: `${d.chip} Hungarian major`, rootL: d.rootL, pedals: { ...d.p },
@@ -554,7 +579,7 @@ const PRESET_GROUPS = [
     "Major", "Harmonic major", "Double harmonic major", "Hungarian major", "Neapolitan major",
   ] },
   { group: "Minor scales", categories: [
-    "Minor (natural)", "Minor (harmonic)", "Hungarian minor", "Neapolitan minor",
+    "Minor (natural)", "Minor (harmonic)", "Minor (melodic, ascending)", "Hungarian minor", "Neapolitan minor",
   ] },
   { group: "Pentatonic & Japanese", categories: [
     "Major pentatonic", "Minor pentatonic", "Hirajoshi pentatonic", "Kumoi", "Iwato", "In (sakura)", "Insen",
