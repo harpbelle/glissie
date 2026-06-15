@@ -731,6 +731,7 @@ export default function HarpGliss() {
   const [importMsg, setImportMsg] = useState("");
   const fileInputRef = useRef(null);
   const [pendingOverwrite, setPendingOverwrite] = useState(null); // name awaiting overwrite confirm
+  const [builtinNameClash, setBuiltinNameClash] = useState(false); // typed name matches a built-in preset
   const [renameIdx, setRenameIdx] = useState(null);   // which saved config is being renamed
   const [renameText, setRenameText] = useState("");
   const [renameErr, setRenameErr] = useState(false);
@@ -1143,6 +1144,12 @@ export default function HarpGliss() {
   function savePreset() {
     if (!saveName.trim() || exactMatches.length > 0) return;
     const name = saveName.trim();
+    // Reject names that belong to a built-in preset, so custom configs never
+    // collide with the library (and survive an export/re-import round-trip).
+    if (ALL_PRESETS_FLAT.some(p => p.name.toLowerCase() === name.toLowerCase())) {
+      setBuiltinNameClash(true);
+      return;
+    }
     const clash = userPresets.findIndex(p => p.name.toLowerCase() === name.toLowerCase());
     if (clash !== -1 && !pendingOverwrite) {
       setPendingOverwrite(name); // ask the user before overwriting
@@ -1165,6 +1172,8 @@ export default function HarpGliss() {
   function renamePreset(index, newName) {
     const trimmed = newName.trim();
     if (!trimmed) return false;
+    // Disallow renaming to a built-in preset name or another saved config's name.
+    if (ALL_PRESETS_FLAT.some(p => p.name.toLowerCase() === trimmed.toLowerCase())) return false;
     const clash = userPresets.some((p, i) => i !== index && p.name.toLowerCase() === trimmed.toLowerCase());
     if (clash) return false;
     setUserPresets(prev => prev.map((p, i) => i === index ? { ...p, name: trimmed } : p));
@@ -1465,7 +1474,7 @@ export default function HarpGliss() {
               <div style={{ display:"flex", gap:8 }}>
                 <input
                   value={saveName}
-                  onChange={e => { setSaveName(e.target.value); setPendingOverwrite(null); }}
+                  onChange={e => { setSaveName(e.target.value); setPendingOverwrite(null); setBuiltinNameClash(false); }}
                   placeholder="Name this pedal configuration…"
                   style={{ ...inputStyle, flex:1 }}
                   onKeyDown={e => e.key === "Enter" && savePreset()}
@@ -1479,6 +1488,11 @@ export default function HarpGliss() {
                     <button onClick={savePreset} style={{ ...btn(false), borderColor:"#b08a3a", color:"#7a5c00" }}>Overwrite it</button>
                     <button onClick={() => setPendingOverwrite(null)} style={btn(false)}>Keep both — I'll rename</button>
                   </div>
+                </div>
+              )}
+              {builtinNameClash && (
+                <div style={{ background:"#fdeeee", border:"1px solid #f0c9c9", borderRadius:6, padding:"8px 12px", marginTop:8, fontSize:12, color:"#9a4444" }}>
+                  <strong>{saveName.trim()}</strong> is the name of a built-in preset — please choose a different name for your configuration.
                 </div>
               )}
             </div>
@@ -1549,7 +1563,7 @@ export default function HarpGliss() {
                           <button onClick={() => { if (renamePreset(i, renameText)) setRenameIdx(null); else setRenameErr(true); }} style={btn(true)}>Save</button>
                           <button onClick={() => setRenameIdx(null)} style={btn(false)}>Cancel</button>
                         </div>
-                        {renameErr && <span style={{ fontSize:11, color:"#b04a4a" }}>That name is already used by another saved configuration.</span>}
+                        {renameErr && <span style={{ fontSize:11, color:"#b04a4a" }}>That name is already used by a built-in preset or another saved configuration.</span>}
                       </div>
                     ) : (
                       <div key={i} style={{
