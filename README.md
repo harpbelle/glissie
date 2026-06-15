@@ -1,10 +1,10 @@
 # Glissie
 
-**Pedal Harp Glissando Simulator** — For composers, harpists, and the simply curious. Whether you're writing idiomatic glissandi without access to a pedal harp, exploring the instrument's surprising range of possible glisses, understanding how it works, or just enjoy listening to harp sounds, Glissie is for you.
+**Pedal Harp Glissando Simulator** for composers, harpists, and the simply curious. Whether you're writing idiomatic glissandi without access to a pedal harp, exploring the instrument's surprising range of possible glisses, understanding how it works, or just enjoy listening to harp sounds, Glissie is for you.
 
 ## What it does
 
-- **Pedal board** D C B for the left foot, E F G A for the right — with flat (up) / natural (middle) / sharp (down) positions. Click to bounce a pedal through its positions, or drag it.
+- **Pedal board** D C B for the left foot, E F G A for the right with flat (up) / natural (middle) / sharp (down) positions. Click to bounce a pedal through its positions, or drag it.
 - **Scale/Arpeggio mode** plays toggleable notes from any start note for a selectable number of octaves; **Glissando mode** sweeps between two notes at 1–40 notes per second, ascending, descending, or both.
 - **Live pedalling**: move a pedal mid-glissando and hear the pitch change immediately, just like the real instrument.
 - **26 preset scale & chord types** (major, the minors, pentatonics, the Japanese scales, blues, the 7th chords, whole tone, and more), each computed for every root that is possible on a pedal harp — the configurations are derived by exhaustive search, so the app doubles as a reference for what the instrument can and can't gliss.
@@ -18,4 +18,4 @@
 
 ## Licence
 
-MIT — see `LICENSE`. The bundled harp samples are CC0 (public domain).
+MIT - see `LICENSE`. The bundled harp samples are CC0 (public domain).
