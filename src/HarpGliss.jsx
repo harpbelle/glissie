@@ -163,14 +163,14 @@ const MINOR_PENT_DEFS = [
   { chip: "B",     rootL: "B", p: { D:0,  C:-1, B:0,  E:0,  F:1,  G:-1, A:0 } },
 ];
 // Diminished 7ths: only 3 distinct collections exist (the chord is symmetric,
-// so e.g. C°7 = E♭°7 = G♭°7 = A°7). Each has exactly one possible config —
+// so e.g. C°7 = E♭°7 = G♭°7 = A°7). Each has exactly one possible config;
 // every string letter has a single valid pedal position.
 const DIM7_DEFS = [
   { chip: "On C (C–E♭–F♯–A)",   rootL: "C", p: { D:1,  C:0,  B:1,  E:-1, F:1,  G:-1, A:0 } },  // D♯ C B♯ E♭ F♯ G♭ A
   { chip: "On C♯ (C♯–E–G–B♭)",  rootL: "C", p: { D:-1, C:1,  B:-1, E:0,  F:-1, G:0,  A:1 } },  // D♭ C♯ B♭ E F♭ G A♯
   { chip: "On D (D–F–G♯–B)",    rootL: "D", p: { D:0,  C:-1, B:0,  E:1,  F:0,  G:1,  A:-1 } }, // D C♭ B E♯ F G♯ A♭
 ];
-// Hirajoshi pentatonic (1, 2, ♭3, 5, ♭6): only 4 roots are possible — the scale
+// Hirajoshi pentatonic (1, 2, ♭3, 5, ♭6): only 4 roots are possible; the scale
 // has two major-third gaps, each of which can strand a string letter. All four
 // canonical configs double root and 5th.
 const HIRAJOSHI_DEFS = [
@@ -181,7 +181,7 @@ const HIRAJOSHI_DEFS = [
 ];
 // Harmonic minors: all 12 roots, conventional spellings (7 notes, no doublings).
 // G♯/D♯/A♯ spellings would need double-sharps, so their flat-side enharmonic
-// spellings are used — identical pitches.
+// spellings are used; identical pitches.
 const HARM_MINOR_DEFS = [
   { chip: "C",     rootL: "C", p: { D:0,  C:0,  B:0,  E:-1, F:0,  G:0,  A:-1 } },
   { chip: "C♯/D♭", rootL: "C", p: { D:1,  C:1,  B:1,  E:0,  F:1,  G:1,  A:0 } },
@@ -196,7 +196,7 @@ const HARM_MINOR_DEFS = [
   { chip: "A♯/B♭", rootL: "B", p: { D:-1, C:0,  B:-1, E:-1, F:0,  G:-1, A:0 } },
   { chip: "B",     rootL: "B", p: { D:0,  C:1,  B:0,  E:0,  F:1,  G:0,  A:1 } },
 ];
-// Hungarian minor (1, 2, ♭3, ♯4, 5, ♭6, 7): 11 of 12 roots — C♯/D♭ is
+// Hungarian minor (1, 2, ♭3, ♯4, 5, ♭6, 7): 11 of 12 roots; C♯/D♭ is
 // impossible (its set forces B♯ and F♭, leaving the E string with no pitch).
 const HUNGARIAN_DEFS = [
   { chip: "C",     rootL: "C", p: { D:0,  C:0,  B:0,  E:-1, F:1,  G:0,  A:-1 } },
@@ -211,7 +211,7 @@ const HUNGARIAN_DEFS = [
   { chip: "A♯/B♭", rootL: "B", p: { D:-1, C:0,  B:-1, E:0,  F:0,  G:-1, A:0 } },
   { chip: "B",     rootL: "B", p: { D:0,  C:1,  B:0,  E:1,  F:1,  G:0,  A:1 } },
 ];
-// Blues major (1, 2, ♭3, 3, 5, 6): hexatonic — exactly one enharmonic doubling.
+// Blues major (1, 2, ♭3, 3, 5, 6): hexatonic; exactly one enharmonic doubling.
 // 11 of 12 roots; F is impossible. Doubling preference: root > 5th > 6th.
 const BLUES_MAJOR_DEFS = [
   { chip: "C",     rootL: "C", p: { D:0,  C:0,  B:1,  E:-1, F:-1, G:0,  A:0 } },
@@ -257,7 +257,7 @@ const HARM_MAJOR_DEFS = [
   { chip: "A♯/B♭", rootL: "B", p: { D:0, C:0, B:-1, E:-1, F:0, G:-1, A:0 } },
   { chip: "B", rootL: "B", p: { D:1, C:1, B:0, E:0, F:1, G:0, A:1 } },
 ];
-// Double harmonic major (1 ♭2 3 4 5 ♭6 7): 11 of 12 — G♯/A♭ impossible.
+// Double harmonic major (1 ♭2 3 4 5 ♭6 7): 11 of 12; G♯/A♭ impossible.
 const DBL_HARM_DEFS = [
   { chip: "C", rootL: "C", p: { D:-1, C:0, B:0, E:0, F:0, G:0, A:-1 } },
   { chip: "C♯/D♭", rootL: "C", p: { D:0, C:1, B:1, E:1, F:1, G:1, A:0 } },
@@ -271,7 +271,7 @@ const DBL_HARM_DEFS = [
   { chip: "A♯/B♭", rootL: "B", p: { D:0, C:-1, B:-1, E:-1, F:0, G:-1, A:0 } },
   { chip: "B", rootL: "B", p: { D:1, C:0, B:0, E:0, F:1, G:0, A:1 } },
 ];
-// Neapolitan major (1 ♭2 ♭3 4 5 6 7): 11 of 12 — G♯/A♭ impossible.
+// Neapolitan major (1 ♭2 ♭3 4 5 6 7): 11 of 12; G♯/A♭ impossible.
 const NEAP_MAJOR_DEFS = [
   { chip: "C", rootL: "C", p: { D:-1, C:0, B:0, E:-1, F:0, G:0, A:0 } },
   { chip: "C♯/D♭", rootL: "C", p: { D:0, C:1, B:1, E:0, F:1, G:1, A:1 } },
@@ -285,7 +285,7 @@ const NEAP_MAJOR_DEFS = [
   { chip: "A♯/B♭", rootL: "B", p: { D:-1, C:-1, B:-1, E:-1, F:0, G:0, A:0 } },
   { chip: "B", rootL: "B", p: { D:0, C:0, B:0, E:0, F:1, G:1, A:1 } },
 ];
-// Neapolitan minor (1 ♭2 ♭3 4 5 ♭6 7): 11 of 12 — G♯/A♭ impossible.
+// Neapolitan minor (1 ♭2 ♭3 4 5 ♭6 7): 11 of 12; G♯/A♭ impossible.
 const NEAP_MINOR_DEFS = [
   { chip: "C", rootL: "C", p: { D:-1, C:0, B:0, E:-1, F:0, G:0, A:-1 } },
   { chip: "C♯/D♭", rootL: "C", p: { D:0, C:1, B:1, E:0, F:1, G:1, A:0 } },
@@ -299,7 +299,7 @@ const NEAP_MINOR_DEFS = [
   { chip: "A♯/B♭", rootL: "B", p: { D:-1, C:-1, B:-1, E:-1, F:0, G:-1, A:0 } },
   { chip: "B", rootL: "B", p: { D:0, C:0, B:0, E:0, F:1, G:0, A:1 } },
 ];
-// Hungarian major (1 ♯2 3 ♯4 5 6 ♭7): 10 of 12 — E and B impossible.
+// Hungarian major (1 ♯2 3 ♯4 5 6 ♭7): 10 of 12; E and B impossible.
 const HUNG_MAJOR_DEFS = [
   { chip: "C", rootL: "C", p: { D:1, C:0, B:-1, E:0, F:1, G:0, A:0 } },
   { chip: "C♯/D♭", rootL: "D", p: { D:-1, C:-1, B:-1, E:0, F:0, G:0, A:-1 } },
@@ -312,7 +312,7 @@ const HUNG_MAJOR_DEFS = [
   { chip: "A", rootL: "A", p: { D:1, C:1, B:1, E:0, F:1, G:0, A:0 } },
   { chip: "A♯/B♭", rootL: "B", p: { D:0, C:1, B:-1, E:0, F:0, G:0, A:-1 } },
 ];
-// Augmented scale (1 ♯2 3 5 ♭6 7): symmetric — 4 distinct collections.
+// Augmented scale (1 ♯2 3 5 ♭6 7): symmetric; 4 distinct collections.
 const AUGMENTED_DEFS = [
   { chip: "On C (C–D♯–E–G–A♭–B)", rootL: "C", p: { D:1, C:0, B:0, E:0, F:-1, G:0, A:-1 } },
   { chip: "On D♭ (D♭–E–F–G♯–A–B♯)", rootL: "D", p: { D:-1, C:0, B:1, E:0, F:0, G:1, A:0 } },
@@ -342,21 +342,21 @@ const KUMOI_DEFS = [
   { chip: "G♯/A♭", rootL: "G", p: { D:1, C:-1, B:-1, E:-1, F:0, G:1, A:-1 } },
   { chip: "A♯/B♭", rootL: "B", p: { D:-1, C:0, B:-1, E:1, F:0, G:0, A:1 } },
 ];
-// Iwato (1 ♭2 4 ♭5 ♭7): 4 of 12 — a mode of Hirajoshi (same collections).
+// Iwato (1 ♭2 4 ♭5 ♭7): 4 of 12; a mode of Hirajoshi (same collections).
 const IWATO_DEFS = [
   { chip: "C", rootL: "C", p: { D:-1, C:0, B:1, E:1, F:0, G:-1, A:1 } },
   { chip: "F", rootL: "F", p: { D:1, C:-1, B:0, E:1, F:0, G:-1, A:1 } },
   { chip: "G", rootL: "G", p: { D:-1, C:0, B:1, E:1, F:0, G:0, A:-1 } },
   { chip: "A♯/B♭", rootL: "B", p: { D:1, C:-1, B:-1, E:0, F:-1, G:1, A:1 } },
 ];
-// In / sakura (1 ♭2 4 5 ♭6): 4 of 12 — also a mode of Hirajoshi.
+// In / sakura (1 ♭2 4 5 ♭6): 4 of 12; also a mode of Hirajoshi.
 const IN_DEFS = [
   { chip: "C", rootL: "C", p: { D:-1, C:0, B:1, E:1, F:0, G:0, A:-1 } },
   { chip: "D♯/E♭", rootL: "E", p: { D:1, C:-1, B:-1, E:-1, F:-1, G:1, A:1 } },
   { chip: "F", rootL: "F", p: { D:-1, C:0, B:1, E:1, F:0, G:-1, A:1 } },
   { chip: "A♯/B♭", rootL: "B", p: { D:1, C:-1, B:-1, E:1, F:0, G:-1, A:1 } },
 ];
-// Insen (1 ♭2 4 5 ♭7): 5 of 12 — a distinct collection.
+// Insen (1 ♭2 4 5 ♭7): 5 of 12; a distinct collection.
 const INSEN_DEFS = [
   { chip: "C", rootL: "C", p: { D:-1, C:0, B:1, E:1, F:0, G:0, A:1 } },
   { chip: "D♯/E♭", rootL: "E", p: { D:1, C:1, B:-1, E:-1, F:-1, G:1, A:1 } },
@@ -576,7 +576,7 @@ function matchPresets(pedals, userPresets) {
   return hits;
 }
 
-// ─── KARPLUS-STRONG (placeholder voice — to be replaced with samples) ───────
+// ─── KARPLUS-STRONG (placeholder voice; to be replaced with samples) ───────
 function pluck(ctx, dest, freq, duration, volume) {
   const sr = ctx.sampleRate;
   const N = Math.round(sr / freq);
@@ -849,7 +849,7 @@ export default function HarpGliss() {
       try {
         const { ctx } = getAudio();
         ensureSamples(ctx);
-      } catch (e) { /* ignore — will init on Play instead */ }
+      } catch (e) { /* ignore; will init on Play instead */ }
       window.removeEventListener("pointerdown", warm);
       window.removeEventListener("keydown", warm);
     };
@@ -1010,7 +1010,7 @@ export default function HarpGliss() {
           soundString(idx);
           let next = idx + dir;
           if (next > hi || next < lo) {
-            // turnaround — refresh bounds from current selections
+            // turnaround; refresh bounds from current selections
             lo = Math.min(glissStartRef.current, glissEndRef.current);
             hi = Math.max(glissStartRef.current, glissEndRef.current);
             if (next > hi) { dir = -1; next = hi - 1; }
@@ -1209,7 +1209,7 @@ export default function HarpGliss() {
         const { configs: incoming, malformed } = sanitizeImported(parsed);
         if (incoming.length === 0 && malformed === 0) { setImportMsg("No valid configurations found in that file."); return; }
         if (incoming.length === 0) {
-          setImportMsg(`No valid configurations found — ${malformed} entr${malformed === 1 ? "y was" : "ies were"} malformed and skipped.`);
+          setImportMsg(`No valid configurations found; ${malformed} entr${malformed === 1 ? "y was" : "ies were"} malformed and skipped.`);
           return;
         }
 
@@ -1271,7 +1271,7 @@ export default function HarpGliss() {
             `Rejected ${rejDup.length} matching an existing configuration under a different name (${rejDup.join(", ")}).`
           );
           if (malformed) parts.push(
-            `${malformed} entr${malformed === 1 ? "y was" : "ies were"} malformed and skipped — fix and re-import to add ${malformed === 1 ? "it" : "them"}.`
+            `${malformed} entr${malformed === 1 ? "y was" : "ies were"} malformed and skipped; fix and re-import to add ${malformed === 1 ? "it" : "them"}.`
           );
           setImportMsg(parts.join(" ") || "Nothing to import.");
           return [...prev, ...accepted];
@@ -1387,18 +1387,18 @@ export default function HarpGliss() {
       {/* Help */}
       {showHelp && (
         <div style={{ background:"#f0f4ff", border:"1px solid #c0cde8", borderRadius:6, padding:12, marginBottom:12, fontSize:12, lineHeight:1.6 }}>
-          <strong>Octave numbering:</strong> Harp octave numbers follow string numbering — they decrease as pitch rises, and each octave begins at F. Ascending from middle: 4C → 4D → 4E → 3F → 3G → 3A → 3B → 3C…
+          <strong>Octave numbering:</strong> Harp octave numbers follow string numbering; they decrease as pitch rises, and each octave begins at F. Ascending from middle: 4C → 4D → 4E → 3F → 3G → 3A → 3B → 3C…
           <StringChart />
           <div style={{ fontSize:11, color:"#777", marginTop:2, marginBottom:10 }}>
             The 47 strings of a concert grand pedal harp, lowest (7C, left) to highest (0G, right).
           </div>
           <strong>Pedals:</strong> D C B = left foot, E F G A = right foot. Up = flat (♭), middle = natural (♮), down = sharp (♯). Click to move the pedal one notch (it bounces: up, middle, down, middle, up…), or drag it directly.<br/><br/>
-          <strong>Live pedalling:</strong> Pedal changes apply immediately, even during playback — just like a real harp.<br/><br/>
-          <strong>Reset:</strong> Restores all settings (pedals, mode, direction, notes, speed, tuning) to their defaults, but keeps your saved configurations. <strong>Reset all</strong> does the same and also deletes your saved configurations — it asks for a second tap to confirm.<br/><br/>
-          <strong>Enharmonic doublings:</strong> Some presets (pentatonics, whole tone) set two adjacent strings to the same pitch — e.g. B♯=C. This is how harpists achieve scales of fewer than seven notes in a glissando; the doubled notes reinforce the sound.<br/><br/>
+          <strong>Live pedalling:</strong> Pedal changes apply immediately, even during playback.<br/><br/>
+          <strong>Reset:</strong> Restores all settings (pedals, mode, direction, notes, speed, tuning) to their defaults, but keeps your saved configurations. <strong>Reset all</strong> does the same and also deletes your saved configurations; it asks for a second tap to confirm.<br/><br/>
+          <strong>Enharmonic doublings:</strong> Some presets (pentatonics, whole tone) set two adjacent strings to the same pitch; e.g. B♯=C. This is how harpists achieve scales of fewer than seven notes in a glissando; the doubled notes reinforce the sound.<br/><br/>
           <strong>7C and 7D:</strong> On a real concert grand these two strings are not connected to the pedal mechanism and must be pre-tuned by hand. In this app they follow the pedals for convenience.<br/><br/>
-          <strong>Saving &amp; sharing:</strong> Saved configurations are stored on your own device and persist between visits — except if you choose "Reset all" or clear your browser data, which removes them. To keep a permanent copy, use Export (below). Each appears under "My configurations," where you can rename (✎) or delete (🗑) it; saving a name you've already used asks whether to overwrite. <strong>Export</strong> lets you tick which configurations to download as a small file you can back up or send to another user; <strong>Import</strong> loads configurations from such a file. On import, identical configurations you already have are skipped, and one whose name you already use for a <em>different</em> setting is automatically renamed.<br/><br/>
-          <strong>Modes:</strong> <em>Scale / Arpeggio</em> plays a run from your start note. The eight buttons are the scale degrees (1–7 plus the octave, 1*): with all lit it's a full scale, and deselecting some makes an arpeggio — for example, leave 1, 3, 5 and 1* for a triad. The <em>Range</em> dropdown sets how many octaves it spans (the choices adapt to how much room the start note leaves before the edge of the harp), and your chosen degree pattern repeats in each octave. <em>Speed</em> sets how many notes play per second. <em>Glissando</em> sweeps every string between two notes.<br/><br/>
+          <strong>Saving &amp; sharing:</strong> Saved configurations are stored on your own device and persist between visits; except if you choose "Reset all" or clear your browser data, which removes them. To save a copy on your local disk or to share with other users, use Export. Each appears under "My configurations," where you can rename (✎) or delete (🗑) it; saving a name you've already used asks whether to overwrite. <strong>Export</strong> lets you tick which configurations to download as a small file you can back up or send to another user; <strong>Import</strong> loads configurations from such a file. On import, identical configurations you already have are skipped, and one whose name you already use for a <em>different</em> setting is automatically renamed.<br/><br/>
+          <strong>Modes:</strong> <em>Scale / Arpeggio</em> plays a run from your start note. The eight buttons are the scale degrees (1–7 plus the octave, 1*): with all lit it's a full scale, and deselecting some makes an arpeggio; for example, leave 1, 3, 5 and 1* for a triad. The <em>Range</em> dropdown sets how many octaves it spans (the choices adapt to how much room the start note leaves before the edge of the harp), and your chosen degree pattern repeats in each octave. <em>Speed</em> sets how many notes play per second. <em>Glissando</em> sweeps every string between two notes.<br/><br/>
           <strong>Snap to root:</strong> When on, pedalling into a configuration that matches a known scale automatically moves the start (and end) notes to that scale's root. Turn it off to pedal around freely without the notes jumping. Choosing a preset from the menu always snaps, regardless of this setting.<br/><br/>
           <strong>Sound:</strong> Sampled concert harp from the Versilian Community Sample Library (VCSL, CC0).
         </div>
@@ -1462,13 +1462,13 @@ export default function HarpGliss() {
         {showSave && (
           exactMatches.length > 0 ? (
             <div style={{ background:"#f5f5f5", border:"1px solid #ddd", borderRadius:6, padding:"8px 12px", marginBottom:8, fontSize:12, color:"#666" }}>
-              This configuration already exists as <strong>{exactMatches.join(" · ")}</strong> — only custom configurations can be saved.
+              This configuration already exists as <strong>{exactMatches.join(" · ")}</strong>; only custom configurations can be saved.
             </div>
           ) : (
             <div style={{ marginBottom:8 }}>
               {presetMatches.length > 0 && (
                 <div style={{ background:"#eef3fb", border:"1px solid #c9d9ee", borderRadius:6, padding:"8px 12px", marginBottom:8, fontSize:12, color:"#3a5572" }}>
-                  These pedals are also read as <strong>{presetMatches.join(" · ")}</strong>, but your chosen root (<strong>{currentRootLetter}</strong>) is different — so this saves as a distinct configuration.
+                  These pedals are also read as <strong>{presetMatches.join(" · ")}</strong>, but your chosen root (<strong>{currentRootLetter}</strong>) is different; so this saves as a distinct configuration.
                 </div>
               )}
               <div style={{ display:"flex", gap:8 }}>
@@ -1486,13 +1486,13 @@ export default function HarpGliss() {
                   You already have a saved configuration called <strong>{pendingOverwrite}</strong>.
                   <div style={{ display:"flex", gap:8, marginTop:8 }}>
                     <button onClick={savePreset} style={{ ...btn(false), borderColor:"#b08a3a", color:"#7a5c00" }}>Overwrite it</button>
-                    <button onClick={() => setPendingOverwrite(null)} style={btn(false)}>Keep both — I'll rename</button>
+                    <button onClick={() => setPendingOverwrite(null)} style={btn(false)}>Keep both; I'll rename</button>
                   </div>
                 </div>
               )}
               {builtinNameClash && (
                 <div style={{ background:"#fdeeee", border:"1px solid #f0c9c9", borderRadius:6, padding:"8px 12px", marginTop:8, fontSize:12, color:"#9a4444" }}>
-                  <strong>{saveName.trim()}</strong> is the name of a built-in preset — please choose a different name for your configuration.
+                  <strong>{saveName.trim()}</strong> is the name of a built-in preset; please choose a different name for your configuration.
                 </div>
               )}
             </div>
@@ -1508,7 +1508,7 @@ export default function HarpGliss() {
 
         {showPresets && (
           <div style={{ background:"white", border:"1px solid #ddd", borderRadius:6, padding:8 }}>
-            {/* User presets — placed first so the Export checkboxes are immediately visible */}
+            {/* User presets; placed first so the Export checkboxes are immediately visible */}
             <div style={{ marginBottom:4 }}>
               <button
                 onClick={() => setOpenCategory(c => c === "__user" ? null : "__user")}
@@ -1524,7 +1524,7 @@ export default function HarpGliss() {
               {openCategory === "__user" && (
                 <div style={{ display:"flex", flexDirection:"column", gap:6, padding:"6px 10px" }}>
                   {userPresets.length === 0 && (
-                    <span style={{ fontSize:12, color:"#999" }}>Nothing saved yet — use "Save current" after setting a custom configuration.</span>
+                    <span style={{ fontSize:12, color:"#999" }}>Nothing saved yet; use "Save current" after setting a custom configuration.</span>
                   )}
                   {exportMode && userPresets.length > 0 && (
                     <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap", paddingBottom:4 }}>
@@ -1825,7 +1825,7 @@ export default function HarpGliss() {
       {/* Pretune warning */}
       {pretuneSelected && (
         <div style={{ background:"#fff8e1", border:"1px solid #ffe082", borderRadius:6, padding:"8px 12px", marginBottom:12, fontSize:12, color:"#7a5c00" }}>
-          ⚠ <strong>7C and 7D</strong> are not connected to the pedal mechanism on a real harp — they must be pre-tuned by the harpist before performance (including to flat or sharp).
+          ⚠ <strong>7C and 7D</strong> are not connected to the pedal mechanism on a real harp; they must be pre-tuned by the harpist before performance (including to flat or sharp).
         </div>
       )}
 
