@@ -1995,7 +1995,7 @@ export default function HarpGliss() {
                 At {speed} notes/s, each voice rings ≈ {(tailNotes / speed).toFixed(2)}s.
               </span>
               <button
-                onClick={() => { setTailNotes(24); setMaxVoices(24); setRootSnap(true); }}
+                onClick={() => { setTailNotes(24); setMaxVoices(24); }}
                 style={{ ...btn(false), fontSize:11, padding:"3px 10px" }}
               >
                 Reset these
