@@ -602,7 +602,7 @@ function matchPresets(pedals, userPresets) {
 }
 
 // ─── KARPLUS-STRONG (placeholder voice; to be replaced with samples) ───────
-function pluck(ctx, dest, freq, duration, volume) {
+function pluck(ctx, dest, freq, duration, volume, when) {
   const sr = ctx.sampleRate;
   const N = Math.round(sr / freq);
   if (N < 2) return;
@@ -620,10 +620,11 @@ function pluck(ctx, dest, freq, duration, volume) {
   const src = ctx.createBufferSource();
   src.buffer = ab;
   const g = ctx.createGain();
-  g.gain.setValueAtTime(volume, ctx.currentTime);
-  g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+  const t = when != null ? when : ctx.currentTime;
+  g.gain.setValueAtTime(volume, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + duration);
   src.connect(g); g.connect(dest);
-  src.start();
+  src.start(t);
 }
 
 const DEFAULT_PEDALS = { D:0, C:0, B:0, E:0, F:0, G:0, A:0 };
@@ -873,6 +874,7 @@ export default function HarpGliss() {
       done = true;
       try {
         const { ctx } = getAudio();
+        unlockAudio(); // unlock within this first gesture too
         ensureSamples(ctx);
       } catch (e) { /* ignore; will init on Play instead */ }
       window.removeEventListener("pointerdown", warm);
@@ -889,6 +891,12 @@ export default function HarpGliss() {
   function getAudio() {
     if (!audioRef.current) {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      // iOS 16.4+: request the "playback" audio session so output is NOT silenced
+      // by the phone's physical mute/ringer switch (the default "ambient" session
+      // is). No-op where unsupported (desktop, older Safari, Chrome, Firefox).
+      try {
+        if (navigator.audioSession) navigator.audioSession.type = "playback";
+      } catch (e) { /* not supported; ignore */ }
       const comp = ctx.createDynamicsCompressor();
       comp.threshold.value = -14;
       comp.ratio.value = 3;
@@ -899,6 +907,20 @@ export default function HarpGliss() {
     }
     if (audioRef.current.ctx.state === "suspended") audioRef.current.ctx.resume();
     return audioRef.current;
+  }
+
+  // Play one silent sample inside a user gesture to fully "unlock" audio on
+  // browsers with strict autoplay policies (notably iOS Safari). Once unlocked,
+  // notes scheduled later from timers are allowed to sound. Safe to call often.
+  function unlockAudio() {
+    try {
+      const { ctx, dest } = getAudio();
+      const b = ctx.createBuffer(1, 1, ctx.sampleRate);
+      const s = ctx.createBufferSource();
+      s.buffer = b;
+      s.connect(dest);
+      s.start(0);
+    } catch (e) { /* ignore */ }
   }
 
   async function ensureSamples(ctx) {
@@ -922,7 +944,7 @@ export default function HarpGliss() {
     S.loading = false;
   }
 
-  function soundString(idx) {
+  function soundString(idx, when) {
     const { ctx, dest } = getAudio();
     ensureSamples(ctx);
     const s = STRINGS[idx];
@@ -930,6 +952,7 @@ export default function HarpGliss() {
     const targetMidi = s.midi + acc;
     const isGliss = mode === "gliss";
     const vol = isGliss ? Math.min(0.55, 1.6 / Math.sqrt(speedRef.current)) : 0.5;
+    const t = when != null ? when : ctx.currentTime; // audio-clock start time for this note
 
     const bufs = samplesRef.current.buffers;
     if (bufs) {
@@ -943,7 +966,6 @@ export default function HarpGliss() {
       src.buffer = bufs[best];
       src.playbackRate.value = rate;
       const g = ctx.createGain();
-      const t = ctx.currentTime;
       g.gain.setValueAtTime(0, t);
       g.gain.linearRampToValueAtTime(vol, t + 0.012); // declick + soften attack
       // Sostenuto length, live-tunable via the sound panel. Scale mode rings full.
@@ -975,9 +997,16 @@ export default function HarpGliss() {
       }
     } else {
       const freq = tuningRef.current * Math.pow(2, (targetMidi - 69) / 12);
-      pluck(ctx, dest, freq, 1.8, vol * 0.6);
+      pluck(ctx, dest, freq, 1.8, vol * 0.6, t);
     }
-    setCurrentIdx(idx);
+    // Light the played string at its actual sounding moment, not at schedule time
+    // (notes are queued up to ~150ms ahead). The gen check stops a stale highlight
+    // from a previous play session firing after Stop/restart.
+    const gen = playRef.current.gen;
+    const lead = Math.max(0, (t - ctx.currentTime) * 1000);
+    setTimeout(() => {
+      if (playRef.current.on && playRef.current.gen === gen) setCurrentIdx(idx);
+    }, lead);
   }
 
   // ── Playback engine ──
@@ -994,77 +1023,103 @@ export default function HarpGliss() {
   async function start() {
     stop();
     playRef.current.on = true;
+    playRef.current.gen = (playRef.current.gen || 0) + 1; // play-session token (stale-highlight guard)
     setPlaying(true);
     const { ctx } = getAudio();
+    unlockAudio(); // silent 1-sample buffer within the gesture; satisfies iOS autoplay
     if (ctx.state === "suspended") {
       try { await ctx.resume(); } catch (e) { /* ignore */ }
     }
     await ensureSamples(ctx); // instant if already pre-warmed on first interaction
     if (!playRef.current.on) return;
-    const PAUSE = 1000;
+    const PAUSE = 1000;       // ms gap inserted between loop repeats
+    const LOOKAHEAD = 0.15;  // queue notes up to this far ahead on the audio clock (s)
+    const TICK = 25;        // how often the scheduler wakes (ms)
+
+    // pullEvent(): advance the playback state by one note and return { idx, gap }
+    // — idx is the string to sound (null means a silent wait) and gap is the
+    // seconds from this note to the next. One definition per mode; the scheduler
+    // below is shared. Sequences are rebuilt at loop/turnaround boundaries from the
+    // live refs, so changes to range, degrees, direction, speed, or endpoints take
+    // effect at the next boundary, exactly as the old loop did.
+    let pullEvent;
 
     if (mode === "scale") {
-      // Rebuild the sequence from current selections at each loop boundary so
-      // changes to start note, range, degrees, or direction apply next loop.
       let seq = buildScaleSequence(scaleStartRef.current, octaveCountRef.current, arpMaskRef.current, directionRef.current);
       let i = 0;
-      const tick = () => {
-        if (!playRef.current.on) return;
+      pullEvent = () => {
         if (i >= seq.length) {
           seq = buildScaleSequence(scaleStartRef.current, octaveCountRef.current, arpMaskRef.current, directionRef.current);
           i = 0;
-          if (seq.length === 0) { playRef.current.timer = setTimeout(tick, PAUSE); return; }
-          playRef.current.timer = setTimeout(tick, PAUSE);
-          return;
+          if (seq.length === 0) return { idx: null, gap: PAUSE / 1000 };
         }
-        soundString(seq[i]);
-        i++;
-        playRef.current.timer = setTimeout(tick, 1000 / tempoRef.current);
+        const idx = seq[i]; i++;
+        let gap = 1 / tempoRef.current;
+        if (i >= seq.length) { // just emitted the last note → pause before the next loop
+          seq = buildScaleSequence(scaleStartRef.current, octaveCountRef.current, arpMaskRef.current, directionRef.current);
+          i = 0;
+          gap += PAUSE / 1000;
+        }
+        return { idx, gap };
       };
-      if (seq.length === 0) { playRef.current.timer = setTimeout(tick, PAUSE); } else { tick(); }
+    } else if (direction === "both") {
+      // Ping-pong; re-read endpoints at each turnaround so From/To changes apply at
+      // the next bounce.
+      let lo = Math.min(glissStartRef.current, glissEndRef.current);
+      let hi = Math.max(glissStartRef.current, glissEndRef.current);
+      let cur = glissStartRef.current;
+      let dir = glissStartRef.current <= glissEndRef.current ? 1 : -1;
+      let first = true;
+      pullEvent = () => {
+        if (first) { first = false; return { idx: cur, gap: 1 / speedRef.current }; }
+        let next = cur + dir;
+        if (next > hi || next < lo) {
+          lo = Math.min(glissStartRef.current, glissEndRef.current);
+          hi = Math.max(glissStartRef.current, glissEndRef.current);
+          if (next > hi) { dir = -1; next = hi - 1; }
+          if (next < lo) { dir = 1; next = lo + 1; }
+          next = Math.max(lo, Math.min(hi, next)); // clamp if bounds shrank
+        }
+        cur = next;
+        return { idx: cur, gap: 1 / speedRef.current };
+      };
     } else {
-      if (direction === "both") {
-        // Ping-pong; re-read endpoints each time we hit a turnaround so changes
-        // to the From/To notes apply at the next bounce.
-        let lo = Math.min(glissStartRef.current, glissEndRef.current);
-        let hi = Math.max(glissStartRef.current, glissEndRef.current);
-        let idx = glissStartRef.current;
-        let dir = glissStartRef.current <= glissEndRef.current ? 1 : -1;
-        const tick = () => {
-          if (!playRef.current.on) return;
-          soundString(idx);
-          let next = idx + dir;
-          if (next > hi || next < lo) {
-            // turnaround; refresh bounds from current selections
-            lo = Math.min(glissStartRef.current, glissEndRef.current);
-            hi = Math.max(glissStartRef.current, glissEndRef.current);
-            if (next > hi) { dir = -1; next = hi - 1; }
-            if (next < lo) { dir = 1; next = lo + 1; }
-            // clamp in case bounds shrank past current position
-            next = Math.max(lo, Math.min(hi, next));
-          }
-          idx = next;
-          playRef.current.timer = setTimeout(tick, 1000 / speedRef.current);
-        };
-        tick();
-      } else {
-        let seq = buildGlissSequence(glissStartRef.current, glissEndRef.current);
-        let i = 0;
-        const tick = () => {
-          if (!playRef.current.on) return;
-          if (i >= seq.length) {
-            seq = buildGlissSequence(glissStartRef.current, glissEndRef.current);
-            i = 0;
-            playRef.current.timer = setTimeout(tick, PAUSE);
-            return;
-          }
-          soundString(seq[i]);
-          i++;
-          playRef.current.timer = setTimeout(tick, 1000 / speedRef.current);
-        };
-        tick();
-      }
+      let seq = buildGlissSequence(glissStartRef.current, glissEndRef.current);
+      let i = 0;
+      pullEvent = () => {
+        if (i >= seq.length) {
+          seq = buildGlissSequence(glissStartRef.current, glissEndRef.current);
+          i = 0;
+          if (seq.length === 0) return { idx: null, gap: PAUSE / 1000 };
+        }
+        const idx = seq[i]; i++;
+        let gap = 1 / speedRef.current;
+        if (i >= seq.length) {
+          seq = buildGlissSequence(glissStartRef.current, glissEndRef.current);
+          i = 0;
+          gap += PAUSE / 1000;
+        }
+        return { idx, gap };
+      };
     }
+
+    // ── Lookahead scheduler ──
+    // Notes are queued on the Web Audio clock at exact times, and each note's time
+    // is the previous time plus its gap — so spacing is correct regardless of
+    // main-thread jank at startup (mounts, re-renders, the audio clock just
+    // beginning to advance). That decoupling is what removes the "crowded burst
+    // then settles" at the first press.
+    let nextNoteTime = ctx.currentTime + 0.08; // small lead so note 1 isn't in the past
+    const scheduleAhead = () => {
+      if (!playRef.current.on) return;
+      while (nextNoteTime < ctx.currentTime + LOOKAHEAD) {
+        const ev = pullEvent();
+        if (ev.idx != null) soundString(ev.idx, nextNoteTime);
+        nextNoteTime += ev.gap;
+      }
+      playRef.current.timer = setTimeout(scheduleAhead, TICK);
+    };
+    scheduleAhead();
   }
 
   // ── Pedal interaction (manual pedalling clears preset root) ──
