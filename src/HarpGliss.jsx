@@ -848,11 +848,14 @@ export default function HarpGliss() {
     } else {
       const sR = direction === "desc" ? RANGES.scaleDesc : RANGES.scaleAsc;
       setScaleStart(v => Math.min(Math.max(v, sR[0]), sR[1]));
-      const gR = direction === "desc" ? RANGES.glissDesc : RANGES.glissAsc;
+      const gR = direction === "desc" ? RANGES.glissDesc
+               : direction === "both" ? [0, 46]
+               : RANGES.glissAsc;
       setGlissStart(v => {
         const nv = Math.min(Math.max(v, gR[0]), gR[1]);
         setGlissEnd(e => {
           if (direction === "desc") return e >= nv ? Math.max(nv - 1, 0) : e;
+          if (direction === "both") return e === nv ? (nv < 46 ? nv + 1 : nv - 1) : e;
           return e <= nv ? Math.min(nv + 1, 46) : e;
         });
         return nv;
@@ -1150,8 +1153,17 @@ export default function HarpGliss() {
   useEffect(() => {
     if (octaveCount > maxOctaves) setOctaveCount(maxOctaves);
   }, [maxOctaves, octaveCount]);
-  const glissStartRange = direction === "desc" ? RANGES.glissDesc : RANGES.glissAsc;
-  const glissEndOptions = direction === "desc" ? rng(glissStart - 1, 0) : rng(glissStart + 1, 46);
+  // In "both" (ping-pong) mode the start can be any string and the end any other
+  // string, since the gliss bounces both ways. Ascending/descending keep their
+  // directional limits (end must sit above/below the start). 46 = 0G (top), 0 = 7C.
+  const glissStartRange =
+    direction === "desc" ? RANGES.glissDesc :
+    direction === "both" ? [0, 46] :
+    RANGES.glissAsc;
+  const glissEndOptions =
+    direction === "desc" ? rng(glissStart - 1, 0) :
+    direction === "both" ? rng(0, 46).filter(i => i !== glissStart) :
+    rng(glissStart + 1, 46);
 
   const pretuneSelected = mode === "scale"
     ? scaleStart <= 1
@@ -1853,6 +1865,8 @@ export default function HarpGliss() {
                   setGlissStart(v);
                   setGlissEnd(prev => {
                     if (direction === "desc") return prev >= v ? Math.max(v - 1, 0) : prev;
+                    // both: end only needs to differ from start; nudge only on collision
+                    if (direction === "both") return prev === v ? (v < 46 ? v + 1 : v - 1) : prev;
                     return prev <= v ? Math.min(v + 1, 46) : prev;
                   });
                 }}
