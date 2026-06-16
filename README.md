@@ -1,6 +1,6 @@
 # Glissie
 
-**Pedal Harp Glissando Simulator** for composers, harpists, and the simply curious. Whether you're writing idiomatic glissandi without access to a pedal harp, exploring the instrument's surprising range of possible glisses, understanding how it works, or just enjoy listening to harp sounds, Glissie is for you.
+**Pedal Harp Glissando Simulator** for composers, harpists, and the simply curious. Whether you're writing idiomatic glissandi without access to a pedal harp, exploring the instrument's surprising range of possible glisses, understanding how it works, or just enjoy listening to harp sounds, [Glissie](https://harpbelle.github.io/glissie/) is for you.
 
 ## What it does
 
