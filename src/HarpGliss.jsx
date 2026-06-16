@@ -49,32 +49,42 @@ function rng(a, b) {
 
 // ─── SEQUENCE BUILDERS (pure; used at play start and at each loop boundary) ──
 // Scale/arpeggio: returns the ordered list of string indices for one pass.
-function buildScaleSequence(scaleStart, octaveCount, arpMask, direction) {
+function buildScaleSequence(scaleStart, octaveCount, arpMask, direction, bothStart) {
   const s = scaleStart;
   const baseDegrees = [0,1,2,3,4,5,6].filter(d => arpMask[d]);
   const octaveOn = arpMask[7];
-  if (direction === "desc") {
+  // One ascending pass from the start note upward across the octave span.
+  const ascendPass = () => {
+    const up = [];
+    for (let o = 0; o < octaveCount; o++) {
+      for (const d of baseDegrees) {
+        const idx = s + o * 7 + d;
+        if (idx >= 0 && idx <= 46) up.push(idx);
+      }
+    }
+    if (octaveOn) { const top = s + octaveCount * 7; if (top <= 46) up.push(top); }
+    return up;
+  };
+  // One descending pass from the start note downward. The octave note (if on)
+  // sits at the top, so the run begins on it.
+  const descendPass = () => {
     const up = [];
     const bottom = s - octaveCount * 7;
     for (let o = 0; o < octaveCount; o++) {
       for (const d of baseDegrees) {
         const idx = bottom + o * 7 + d;
-        if (idx >= 0) up.push(idx);
+        if (idx >= 0 && idx <= 46) up.push(idx);
       }
     }
     if (octaveOn) { if (s <= 46) up.push(s); }
     return up.reverse();
-  } else {
-    const up = [];
-    for (let o = 0; o < octaveCount; o++) {
-      for (const d of baseDegrees) {
-        const idx = s + o * 7 + d;
-        if (idx <= 46) up.push(idx);
-      }
-    }
-    if (octaveOn) { const top = s + octaveCount * 7; if (top <= 46) up.push(top); }
-    return direction === "asc" ? up : [...up, ...up.slice(0, -1).reverse()];
-  }
+  };
+  if (direction === "asc") return ascendPass();
+  if (direction === "desc") return descendPass();
+  // both: bounce out and back. Defaults to starting upward; "down" starts with
+  // the descending pass (and the descending range/octave logic applies in the UI).
+  const first = bothStart === "down" ? descendPass() : ascendPass();
+  return [...first, ...first.slice(0, -1).reverse()];
 }
 // Gliss non-both: a straight run from start to end.
 function buildGlissSequence(glissStart, glissEnd) {
@@ -733,6 +743,7 @@ export default function HarpGliss() {
   const [presetRoot, setPresetRoot] = useState(null); // string letter from selected preset
   const [mode, setMode] = useState("scale");
   const [direction, setDirection] = useState("asc");
+  const [bothStart, setBothStart] = useState("up"); // scale "both": bounce up-first or down-first
   const [scaleStart, setScaleStart] = useState(IDX["4C"]);
   const [octaveCount, setOctaveCount] = useState(1);
   const [glissStart, setGlissStart] = useState(IDX["5C"]);
@@ -793,6 +804,7 @@ export default function HarpGliss() {
   // each loop boundary using the latest choices (live-update on next loop).
   const modeRef = useRef(mode);
   const directionRef = useRef(direction);
+  const bothStartRef = useRef(bothStart);
   const scaleStartRef = useRef(scaleStart);
   const octaveCountRef = useRef(octaveCount);
   const arpMaskRef = useRef(arpMask);
@@ -808,6 +820,7 @@ export default function HarpGliss() {
   useEffect(() => { tempoRef.current = scaleSpeed; }, [scaleSpeed]);
   useEffect(() => { modeRef.current = mode; }, [mode]);
   useEffect(() => { directionRef.current = direction; }, [direction]);
+  useEffect(() => { bothStartRef.current = bothStart; }, [bothStart]);
   useEffect(() => { scaleStartRef.current = scaleStart; }, [scaleStart]);
   useEffect(() => { octaveCountRef.current = octaveCount; }, [octaveCount]);
   useEffect(() => { arpMaskRef.current = arpMask; }, [arpMask]);
@@ -846,7 +859,8 @@ export default function HarpGliss() {
         if (gs !== null) { setGlissStart(gs); setGlissEnd(gs + 21); }
       }
     } else {
-      const sR = direction === "desc" ? RANGES.scaleDesc : RANGES.scaleAsc;
+      const sR = (direction === "desc" || (direction === "both" && bothStart === "down"))
+        ? RANGES.scaleDesc : RANGES.scaleAsc;
       setScaleStart(v => Math.min(Math.max(v, sR[0]), sR[1]));
       const gR = direction === "desc" ? RANGES.glissDesc
                : direction === "both" ? [0, 46]
@@ -1048,18 +1062,21 @@ export default function HarpGliss() {
     let pullEvent;
 
     if (mode === "scale") {
-      let seq = buildScaleSequence(scaleStartRef.current, octaveCountRef.current, arpMaskRef.current, directionRef.current);
+      const buildScale = () => buildScaleSequence(
+        scaleStartRef.current, octaveCountRef.current, arpMaskRef.current,
+        directionRef.current, bothStartRef.current);
+      let seq = buildScale();
       let i = 0;
       pullEvent = () => {
         if (i >= seq.length) {
-          seq = buildScaleSequence(scaleStartRef.current, octaveCountRef.current, arpMaskRef.current, directionRef.current);
+          seq = buildScale();
           i = 0;
           if (seq.length === 0) return { idx: null, gap: PAUSE / 1000 };
         }
         const idx = seq[i]; i++;
         let gap = 1 / tempoRef.current;
         if (i >= seq.length) { // just emitted the last note → pause before the next loop
-          seq = buildScaleSequence(scaleStartRef.current, octaveCountRef.current, arpMaskRef.current, directionRef.current);
+          seq = buildScale();
           i = 0;
           gap += PAUSE / 1000;
         }
@@ -1143,11 +1160,13 @@ export default function HarpGliss() {
   }
 
   // ── Dropdown ranges ──
-  const scaleRange = direction === "desc" ? RANGES.scaleDesc : RANGES.scaleAsc;
+  // "both" with a down-first bounce follows the descending range/octave logic.
+  const scaleDescLogic = direction === "desc" || (direction === "both" && bothStart === "down");
+  const scaleRange = scaleDescLogic ? RANGES.scaleDesc : RANGES.scaleAsc;
   // How many whole octaves fit from the start note in the playing direction:
-  // ascending/both extend upward toward 0G (index 46); descending extends
-  // downward toward 7C (index 0).
-  const maxOctaves = direction === "desc"
+  // ascending (and up-first both) extend upward toward 0G (index 46); descending
+  // (and down-first both) extend downward toward 7C (index 0).
+  const maxOctaves = scaleDescLogic
     ? Math.max(1, Math.floor(scaleStart / 7))
     : Math.max(1, Math.floor((46 - scaleStart) / 7));
   useEffect(() => {
@@ -1199,6 +1218,7 @@ export default function HarpGliss() {
     setPresetRoot(null);
     setMode("scale");
     setDirection("asc");
+    setBothStart("up");
     setScaleStart(IDX["4C"]);
     setOctaveCount(1);
     setScaleSpeed(2);
@@ -1811,12 +1831,32 @@ export default function HarpGliss() {
           </div>
         )}
 
+        {mode === "scale" && direction === "both" && (
+          <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:10, flexWrap:"wrap" }}>
+            <label style={{ fontSize:12, color:"#666" }}>Bounce:</label>
+            <label style={{ display:"flex", gap:5, alignItems:"center", fontSize:12, color:"#555", cursor:"pointer" }}>
+              <input type="radio" name="bothStart" checked={bothStart === "up"}
+                onChange={() => { setBothStart("up"); setScaleStart(v => Math.min(Math.max(v, RANGES.scaleAsc[0]), RANGES.scaleAsc[1])); stop(); }} />
+              Up first ↑↓
+            </label>
+            <label style={{ display:"flex", gap:5, alignItems:"center", fontSize:12, color:"#555", cursor:"pointer" }}>
+              <input type="radio" name="bothStart" checked={bothStart === "down"}
+                onChange={() => { setBothStart("down"); setScaleStart(v => Math.min(Math.max(v, RANGES.scaleDesc[0]), RANGES.scaleDesc[1])); stop(); }} />
+              Down first ↓↑
+            </label>
+          </div>
+        )}
+
         {mode === "scale" && (
           <div style={{ marginBottom:10 }}>
             <div style={{ display:"flex", gap:4, justifyContent:"space-between" }}>
               {[0,1,2,3,4,5,6,7].map(d => {
-                const stringIdx = scaleStart + d;
-                const s = STRINGS[Math.min(stringIdx, STRINGS.length - 1)];
+                // Degree notes run upward from the start note when the pass
+                // ascends, and downward (one octave below the start, up to the
+                // start) when it descends — matching what the sequence builder
+                // plays, so each button shows the note its toggle controls.
+                const stringIdx = scaleDescLogic ? scaleStart - 7 + d : scaleStart + d;
+                const s = STRINGS[Math.max(0, Math.min(stringIdx, STRINGS.length - 1))];
                 const name = s ? `${s.letter}${accSymbol(pedals[s.letter])}` : "–";
                 const degLabel = d === 7 ? "1*" : String(d + 1);
                 const on = arpMask[d];
