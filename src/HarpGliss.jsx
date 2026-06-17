@@ -1777,7 +1777,7 @@ export default function HarpGliss() {
                             <button key={i} onClick={() => applyPreset(p)} style={{
                               padding:"4px 10px", borderRadius:4, border:"1px solid #ccc",
                               background: sameConfig(p.pedals, pedals) ? "#dceadc" : "white",
-                              cursor:"pointer", fontSize:12,
+                              cursor:"pointer", fontSize:12, lineHeight:"20px", minHeight:28,
                             }}>
                               {p.chip}
                             </button>
