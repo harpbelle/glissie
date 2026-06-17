@@ -2022,9 +2022,9 @@ export default function HarpGliss() {
         {playing ? "⏹ Stop" : "▶ Play"}
       </button>
 
-      <div style={{ marginTop:10, fontSize:12, color:"#888", textAlign:"center", minHeight:16 }}>
+      <div style={{ marginTop:10, fontSize:12, color:"#888", textAlign:"center", minHeight:16, lineHeight:"16px" }}>
         {playing && currentIdx !== null
-          ? <>Now playing: <strong>{noteLabel(currentIdx, pedals)}</strong></>
+          ? <>Now playing: <strong style={{ display:"inline-block", minWidth:"2.6em", textAlign:"left", lineHeight:"16px" }}>{noteLabel(currentIdx, pedals)}</strong></>
           : "Pedal changes apply live during playback"}
       </div>
 
