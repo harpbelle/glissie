@@ -812,7 +812,7 @@ export default function HarpGliss() {
   const glissEndRef = useRef(glissEnd);
   const playRef = useRef({ on: false, timer: null });
   const cycleDirRef = useRef({});
-  const dragRef = useRef(null);
+  const dragRef = useRef({}); // active pedal drags keyed by pointerId (up to two fingers)
   const audioRef = useRef(null);
 
   useEffect(() => { pedalsRef.current = pedals; }, [pedals]);
@@ -1401,11 +1401,15 @@ export default function HarpGliss() {
     const topFor = p => (p === -1 ? 6 : p === 0 ? 36 : 66);
 
     function onPointerDown(e) {
+      // Track each finger separately by pointerId so two pedals can be dragged at
+      // once on touch. A mouse has a single pointer, so desktop stays single. The
+      // single-pointer path is identical to the original — no cap that could wedge
+      // the board, and no left/right-foot grouping.
       e.currentTarget.setPointerCapture(e.pointerId);
-      dragRef.current = { L, startY: e.clientY, startPos: pos, moved: false };
+      dragRef.current[e.pointerId] = { L, startY: e.clientY, startPos: pos, moved: false };
     }
     function onPointerMove(e) {
-      const d = dragRef.current;
+      const d = dragRef.current[e.pointerId];
       if (!d || d.L !== L) return;
       const dy = e.clientY - d.startY;
       if (Math.abs(dy) > 8) d.moved = true;
@@ -1414,10 +1418,10 @@ export default function HarpGliss() {
         setPedal(L, np);
       }
     }
-    function onPointerUp() {
-      const d = dragRef.current;
+    function onPointerUp(e) {
+      const d = dragRef.current[e.pointerId];
       if (d && d.L === L && !d.moved) bouncePedal(L);
-      dragRef.current = null;
+      delete dragRef.current[e.pointerId];
     }
 
     return (
@@ -1429,7 +1433,7 @@ export default function HarpGliss() {
           style={{
             width:32, height:90, background:"#e8e8e8", borderRadius:6,
             border:"1.5px solid #bbb", position:"relative", cursor:"pointer",
-            boxShadow:"inset 0 1px 3px rgba(0,0,0,0.15)",
+            boxShadow:"inset 0 1px 3px rgba(0,0,0,0.15)", touchAction:"none",
           }}
         >
           {[-1,0,1].map(p => (
