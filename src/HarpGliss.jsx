@@ -213,8 +213,8 @@ const HARM_MINOR_DEFS = [
 // spellings are used; identical pitches.
 const MELODIC_MINOR_DEFS = [
   { chip: "C",     rootL: "C", p: { D:0,  C:0,  B:0,  E:-1, F:0,  G:0,  A:0 } },
-  { chip: "D♭",    rootL: "D", p: { D:-1, C:0,  B:-1, E:-1, F:-1, G:-1, A:-1 } },
   { chip: "C♯",    rootL: "C", p: { D:1,  C:1,  B:1,  E:0,  F:1,  G:1,  A:1 } },
+  { chip: "D♭",    rootL: "D", p: { D:-1, C:0,  B:-1, E:-1, F:-1, G:-1, A:-1 } },
   { chip: "D",     rootL: "D", p: { D:0,  C:1,  B:0,  E:0,  F:0,  G:0,  A:0 } },
   { chip: "E♭",    rootL: "E", p: { D:0, C:0, B:-1, E:-1, F:0, G:-1, A:-1 } },
   { chip: "E",     rootL: "E", p: { D:1,  C:1,  B:0,  E:0,  F:1,  G:0,  A:0 } },
@@ -580,8 +580,8 @@ const PRESET_CATEGORIES = [
     items: [
       { chip: "On C (F♭=E)",  name: "Whole tone on C",  rootL: "C", pedals: { C:0,D:0,E:0,F:-1,G:-1,A:-1,B:-1 } },
       { chip: "On B♯ (B♯=C)", name: "Whole tone on B♯", rootL: "B", pedals: { C:0,D:0,E:0,F:1,G:1,A:1,B:1 } },
-      { chip: "On D♭ (C♭=B)", name: "Whole tone on D♭", rootL: "D", pedals: { C:-1,D:-1,E:-1,F:0,G:0,A:0,B:0 } },
       { chip: "On C♯ (E♯=F)", name: "Whole tone on C♯", rootL: "C", pedals: { C:1,D:1,E:1,F:0,G:0,A:0,B:0 } },
+      { chip: "On D♭ (C♭=B)", name: "Whole tone on D♭", rootL: "D", pedals: { C:-1,D:-1,E:-1,F:0,G:0,A:0,B:0 } },
     ],
   },
 ];
