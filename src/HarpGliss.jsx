@@ -2016,7 +2016,7 @@ export default function HarpGliss() {
           width:"100%", padding:12, borderRadius:8, border:"none",
           background: playing ? "#b04a4a" : "#3a7a3a", color:"white",
           fontSize:16, fontWeight:"bold", cursor:"pointer", letterSpacing:1,
-          boxShadow: playing ? "none" : "0 2px 6px rgba(0,0,0,0.15)",
+          lineHeight:1.5, boxShadow:"0 2px 6px rgba(0,0,0,0.15)",
         }}
       >
         {playing ? "⏹ Stop" : "▶ Play"}
