@@ -578,8 +578,8 @@ const PRESET_CATEGORIES = [
   {
     category: "Whole tone",
     items: [
-      { chip: "On C (F♭=E)",  name: "Whole tone on C",  rootL: "C", pedals: { C:0,D:0,E:0,F:-1,G:-1,A:-1,B:-1 } },
       { chip: "On B♯ (B♯=C)", name: "Whole tone on B♯", rootL: "B", pedals: { C:0,D:0,E:0,F:1,G:1,A:1,B:1 } },
+      { chip: "On C (F♭=E)",  name: "Whole tone on C",  rootL: "C", pedals: { C:0,D:0,E:0,F:-1,G:-1,A:-1,B:-1 } },
       { chip: "On C♯ (E♯=F)", name: "Whole tone on C♯", rootL: "C", pedals: { C:1,D:1,E:1,F:0,G:0,A:0,B:0 } },
       { chip: "On D♭ (C♭=B)", name: "Whole tone on D♭", rootL: "D", pedals: { C:-1,D:-1,E:-1,F:0,G:0,A:0,B:0 } },
     ],
