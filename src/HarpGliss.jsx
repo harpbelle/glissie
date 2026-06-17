@@ -134,26 +134,26 @@ const MINOR_DEFS = [
 // rootL = string of the "higher" enharmonic root within the detection window.
 const PENTATONIC_DEFS = [
   { chip: "C",     rootL: "C", p: { D:0, C:0, B:1,  E:0,  F:-1, G:0,  A:0 } },  // B♯=C, F♭=E
-  { chip: "C♯/D♭", rootL: "D", p: { D:-1, C:1, B:-1, E:-1, F:0, G:1, A:-1 } }, // C♯=D♭, G♯=A♭
-  { chip: "D", rootL: "D", p: { D:0, C:-1, B:0, E:0, F:-1, G:-1, A:0 } },  // C♭=B, F♯=G♭
-  { chip: "D♯/E♭", rootL: "E", p: { D:1, C:0, B:-1, E:-1, F:0, G:0, A:1 } },  // D♯=E♭, A♯=B♭
+  { chip: "D♭", rootL: "D", p: { D:-1, C:1, B:-1, E:-1, F:0, G:1, A:-1 } }, // C♯=D♭, G♯=A♭
+  { chip: "D", rootL: "D", p: { D:0, C:-1, B:0, E:0, F:-1, G:-1, A:0 } },  // C♭=B, F♭=E
+  { chip: "E♭", rootL: "E", p: { D:1, C:0, B:-1, E:-1, F:0, G:0, A:1 } },  // D♯=E♭, A♯=B♭
   { chip: "E",     rootL: "E", p: { D:-1,C:-1,B:0,  E:0,  F:-1, G:-1, A:-1 } }, // F♭=E, C♭=B
   { chip: "F",     rootL: "F", p: { D:0, C:0, B:1,  E:1,  F:0,  G:0,  A:0 } },  // E♯=F, B♯=C
-  { chip: "F♯/G♭", rootL: "G", p: { D:-1, C:1, B:-1, E:-1, F:1, G:-1, A:-1 } }, // F♯=G♭, C♯=D♭
+  { chip: "G♭", rootL: "G", p: { D:-1, C:1, B:-1, E:-1, F:1, G:-1, A:-1 } }, // F♯=G♭, C♯=D♭
   { chip: "G",     rootL: "G", p: { D:0, C:-1,B:0,  E:0,  F:-1, G:0,  A:0 } },  // C♭=B, F♭=E
-  { chip: "G♯/A♭", rootL: "G", p: { D:1, C:0, B:-1, E:-1, F:0, G:1, A:-1 } }, // G♯=A♭, D♯=E♭
+  { chip: "A♭", rootL: "A", p: { D:1, C:0, B:-1, E:-1, F:0, G:1, A:-1 } }, // G♯=A♭, D♯=E♭
   { chip: "A",     rootL: "A", p: { D:-1,C:-1,B:0,  E:0,  F:-1, G:-1, A:0 } },  // C♭=B, F♭=E
-  { chip: "A♯/B♭", rootL: "B", p: { D:0, C:0, B:-1, E:1, F:0, G:0, A:1 } },  // A♯=B♭, E♯=F
+  { chip: "B♭", rootL: "B", p: { D:0, C:0, B:-1, E:1, F:0, G:0, A:1 } },  // A♯=B♭, E♯=F
   { chip: "B",     rootL: "B", p: { D:-1,C:-1,B:0,  E:-1, F:1,  G:-1, A:-1 } }, // C♭=B, F♯=G♭
 ];
 // Dominant 7ths: only 5 roots are possible on a pedal harp (the other seven
 // strand at least one string letter with no chord tone reachable). Canonical
 // configs double root, 3rd and 5th, leaving the 7th single.
 const DOM7_DEFS = [
-  { chip: "C♯/D♭", rootL: "D", p: { D:-1, C:-1, B:0, E:1, F:0, G:1, A:-1 } }, // D♭ C♯ B E♯ F G♯ A♭
+  { chip: "D♭", rootL: "D", p: { D:-1, C:-1, B:0, E:1, F:0, G:1, A:-1 } }, // D♭ C♭ B E♯ F G♯ A♭
   { chip: "E",     rootL: "E", p: { D:0,  C:-1, B:0,  E:0,  F:-1,G:1,  A:-1 } }, // D C♭ B E F♭ G♯ A♭
-  { chip: "F♯/G♭", rootL: "G", p: { D:-1, C:1, B:-1, E:0, F:-1, G:-1, A:1 } },  // D♭ C♯ B♭ E F♯ G♭ A♯
-  { chip: "G♯/A♭", rootL: "A", p: { D:1, C:0, B:1, E:-1, F:1, G:-1, A:-1 } }, // D♯ C B♯ E♭ F♯ G♯ A♭
+  { chip: "G♭", rootL: "G", p: { D:-1, C:1, B:-1, E:0, F:-1, G:-1, A:1 } },  // D♭ C♯ B♭ E F♭ G♭ A♯
+  { chip: "A♭", rootL: "A", p: { D:1, C:0, B:1, E:-1, F:1, G:-1, A:-1 } }, // D♯ C B♯ E♭ F♯ G♭ A♭
   { chip: "B",     rootL: "B", p: { D:1,  C:-1, B:0,  E:-1, F:1, G:-1, A:0 } },  // D♯ C♭ B E♭ F♯ G♭ A
 ];
 // Minor pentatonics share configs with their relative major pentatonics
@@ -162,14 +162,14 @@ const MINOR_PENT_DEFS = [
   { chip: "C",     rootL: "C", p: { D:1,  C:0,  B:-1, E:-1, F:0,  G:0,  A:1 } },
   { chip: "D♭",    rootL: "D", p: { D:-1, C:-1, B:0, E:0, F:-1, G:-1, A:-1 } },
   { chip: "D",     rootL: "D", p: { D:0,  C:0,  B:1,  E:1,  F:0,  G:0,  A:0 } },
-  { chip: "D♯/E♭", rootL: "E", p: { D:-1, C:1, B:-1, E:-1, F:1, G:-1, A:-1 } },
+  { chip: "E♭", rootL: "E", p: { D:-1, C:1, B:-1, E:-1, F:1, G:-1, A:-1 } },
   { chip: "E",     rootL: "E", p: { D:0,  C:-1, B:0,  E:0,  F:-1, G:0,  A:0 } },
   { chip: "F",     rootL: "F", p: { D:1,  C:0,  B:-1, E:-1, F:0,  G:1,  A:-1 } },
   { chip: "G♭",    rootL: "G", p: { D:-1, C:-1, B:0, E:0, F:-1, G:-1, A:0 } },
   { chip: "G",     rootL: "G", p: { D:0,  C:0,  B:-1, E:1,  F:0,  G:0,  A:1 } },
-  { chip: "G♯/A♭", rootL: "A", p: { D:-1, C:-1, B:0, E:-1, F:1, G:-1, A:-1 } },
+  { chip: "A♭", rootL: "A", p: { D:-1, C:-1, B:0, E:-1, F:1, G:-1, A:-1 } },
   { chip: "A",     rootL: "A", p: { D:0,  C:0,  B:1,  E:0,  F:-1, G:0,  A:0 } },
-  { chip: "A♯/B♭", rootL: "B", p: { D:-1, C:1, B:-1, E:-1, F:0, G:1, A:-1 } },
+  { chip: "B♭", rootL: "B", p: { D:-1, C:1, B:-1, E:-1, F:0, G:1, A:-1 } },
   { chip: "B", rootL: "B", p: { D:0, C:-1, B:0, E:0, F:-1, G:-1, A:0 } },
 ];
 // Diminished 7ths: only 3 distinct collections exist (the chord is symmetric,
@@ -184,10 +184,10 @@ const DIM7_DEFS = [
 // has two major-third gaps, each of which can strand a string letter. All four
 // canonical configs double root and 5th.
 const HIRAJOSHI_DEFS = [
-  { chip: "D♯/E♭", rootL: "E", p: { D:1, C:-1, B:-1, E:-1, F:0, G:-1, A:1 } },  // D♯ C♭ B♭ E♭ F G♭ A♯
+  { chip: "E♭", rootL: "E", p: { D:1, C:-1, B:-1, E:-1, F:0, G:-1, A:1 } },  // D♯ C♭ B♭ E♭ F G♭ A♯
   { chip: "F",     rootL: "F", p: { D:-1, C:0,  B:1,  E:1,  F:0, G:0,  A:-1 } }, // D♭ C B♯ E♯ F G A♭
-  { chip: "G♯/A♭", rootL: "G", p: { D:1, C:-1, B:-1, E:-1, F:-1, G:1, A:-1 } }, // D♯ C♭ B♭ E♭ F♭ G♯ A♭
-  { chip: "A♯/B♭", rootL: "B", p: { D:-1, C:0, B:-1, E:1, F:0, G:-1, A:1 } },  // D♭ C B♭ E♯ F G♭ A♯
+  { chip: "A♭", rootL: "A", p: { D:1, C:-1, B:-1, E:-1, F:-1, G:1, A:-1 } }, // D♯ C♭ B♭ E♭ F♭ G♯ A♭
+  { chip: "B♭", rootL: "B", p: { D:-1, C:0, B:-1, E:1, F:0, G:-1, A:1 } },  // D♭ C B♭ E♯ F G♭ A♯
 ];
 // Harmonic minors: all 12 roots, conventional spellings (7 notes, no doublings).
 // G♯/D♯/A♯ spellings would need double-sharps, so their flat-side enharmonic
@@ -245,13 +245,13 @@ const HUNGARIAN_DEFS = [
 // 11 of 12 roots; F is impossible. Doubling preference: root > 5th > 6th.
 const BLUES_MAJOR_DEFS = [
   { chip: "C",     rootL: "C", p: { D:0,  C:0,  B:1,  E:-1, F:-1, G:0,  A:0 } },
-  { chip: "C♯/D♭", rootL: "C", p: { D:1, C:1, B:-1, E:0, F:0, G:1, A:-1 } },
+  { chip: "C♯", rootL: "C", p: { D:1, C:1, B:-1, E:0, F:0, G:1, A:-1 } },
   { chip: "D",     rootL: "D", p: { D:0,  C:-1, B:0,  E:0,  F:0,  G:-1, A:0 } },
-  { chip: "D♯/E♭", rootL: "D", p: { D:1, C:0, B:-1, E:1, F:1, G:0, A:1 } },
+  { chip: "D♯", rootL: "D", p: { D:1, C:0, B:-1, E:1, F:1, G:0, A:1 } },
   { chip: "E",     rootL: "E", p: { D:-1, C:-1, B:0,  E:0,  F:1,  G:0,  A:-1 } },
-  { chip: "F♯/G♭", rootL: "F", p: { D:-1, C:1, B:-1, E:-1, F:1, G:1, A:0 } },
+  { chip: "F♯", rootL: "F", p: { D:-1, C:1, B:-1, E:-1, F:1, G:1, A:0 } },
   { chip: "G",     rootL: "G", p: { D:0,  C:-1, B:-1, E:0,  F:-1, G:0,  A:0 } },
-  { chip: "G♯/A♭", rootL: "G", p: { D:1, C:0, B:0, E:-1, F:0, G:1, A:1 } },
+  { chip: "G♯", rootL: "G", p: { D:1, C:0, B:0, E:-1, F:0, G:1, A:1 } },
   { chip: "A",     rootL: "A", p: { D:-1, C:0,  B:0,  E:0,  F:-1, G:-1, A:0 } },
   { chip: "A♯",    rootL: "A", p: { D:0, C:1, B:1, E:1, F:0, G:0, A:1 } },
   { chip: "B",     rootL: "B", p: { D:0,  C:1,  B:0,  E:-1, F:1,  G:-1, A:-1 } },
@@ -260,15 +260,15 @@ const BLUES_MAJOR_DEFS = [
 // impossible. Relative of blues major (C blues major = A blues minor).
 const BLUES_MINOR_DEFS = [
   { chip: "C", rootL: "C", p: { D:1, C:0, B:-1, E:1, F:1, G:0, A:1 } },
-  { chip: "C♯/D♭", rootL: "D", p: { D:-1, C:-1, B:0, E:0, F:1, G:0, A:-1 } },
-  { chip: "D♯/E♭", rootL: "E", p: { D:-1, C:1, B:-1, E:-1, F:1, G:1, A:0 } },
+  { chip: "D♭", rootL: "D", p: { D:-1, C:-1, B:0, E:0, F:1, G:0, A:-1 } },
+  { chip: "E♭", rootL: "E", p: { D:-1, C:1, B:-1, E:-1, F:1, G:1, A:0 } },
   { chip: "E",     rootL: "E", p: { D:0,  C:-1, B:-1, E:0,  F:-1, G:0,  A:0 } },
   { chip: "F", rootL: "F", p: { D:1, C:0, B:0, E:-1, F:0, G:1, A:1 } },
   { chip: "G♭",    rootL: "G", p: { D:-1, C:0, B:0, E:0, F:-1, G:-1, A:0 } },
   { chip: "G",     rootL: "G", p: { D:0,  C:1,  B:1,  E:1,  F:0,  G:0,  A:1 } },
-  { chip: "G♯/A♭", rootL: "A", p: { D:0, C:1, B:0, E:-1, F:1, G:-1, A:-1 } },
+  { chip: "A♭", rootL: "A", p: { D:0, C:1, B:0, E:-1, F:1, G:-1, A:-1 } },
   { chip: "A",     rootL: "A", p: { D:0,  C:0,  B:1,  E:-1, F:-1, G:0,  A:0 } },
-  { chip: "A♯/B♭", rootL: "B", p: { D:1, C:1, B:-1, E:0, F:0, G:1, A:-1 } },
+  { chip: "B♭", rootL: "B", p: { D:1, C:1, B:-1, E:0, F:0, G:1, A:-1 } },
   { chip: "B",     rootL: "B", p: { D:0,  C:-1, B:0,  E:0,  F:0,  G:-1, A:0 } },
 ];
 // ── Completing the ≤7-note scale survey ──
@@ -334,13 +334,13 @@ const HUNG_MAJOR_DEFS = [
   { chip: "C", rootL: "C", p: { D:1, C:0, B:-1, E:0, F:1, G:0, A:0 } },
   { chip: "D♭",    rootL: "D", p: { D:-1, C:-1, B:-1, E:0, F:0, G:0, A:-1 } },
   { chip: "D", rootL: "D", p: { D:0, C:0, B:0, E:1, F:1, G:1, A:0 } },
-  { chip: "D♯/E♭", rootL: "E", p: { D:-1, C:0, B:-1, E:-1, F:1, G:0, A:0 } },
+  { chip: "E♭", rootL: "E", p: { D:-1, C:0, B:-1, E:-1, F:1, G:0, A:0 } },
   { chip: "F", rootL: "F", p: { D:0, C:0, B:0, E:-1, F:0, G:1, A:0 } },
   { chip: "G♭",    rootL: "G", p: { D:-1, C:0, B:-1, E:-1, F:-1, G:-1, A:0 } },
   { chip: "G", rootL: "G", p: { D:0, C:1, B:0, E:0, F:0, G:0, A:1 } },
   { chip: "A♭",    rootL: "A", p: { D:0, C:0, B:0, E:-1, F:0, G:-1, A:-1 } },
   { chip: "A", rootL: "A", p: { D:1, C:1, B:1, E:0, F:1, G:0, A:0 } },
-  { chip: "A♯/B♭", rootL: "B", p: { D:0, C:1, B:-1, E:0, F:0, G:0, A:-1 } },
+  { chip: "B♭", rootL: "B", p: { D:0, C:1, B:-1, E:0, F:0, G:0, A:-1 } },
 ];
 // Augmented scale (1 ♯2 3 5 ♭6 7): symmetric; 4 distinct collections.
 const AUGMENTED_DEFS = [
@@ -352,62 +352,62 @@ const AUGMENTED_DEFS = [
 // Prometheus / mystic (1 2 3 ♯4 6 ♭7): all 12 roots.
 const PROMETHEUS_DEFS = [
   { chip: "C", rootL: "C", p: { D:0, C:0, B:-1, E:0, F:-1, G:-1, A:0 } },
-  { chip: "C♯/D♭", rootL: "D", p: { D:-1, C:-1, B:0, E:-1, F:0, G:0, A:1 } },
+  { chip: "D♭", rootL: "D", p: { D:-1, C:-1, B:0, E:-1, F:0, G:0, A:1 } },
   { chip: "D", rootL: "D", p: { D:0, C:0, B:0, E:0, F:-1, G:-1, A:-1 } },
-  { chip: "D♯/E♭", rootL: "E", p: { D:-1, C:0, B:1, E:-1, F:0, G:0, A:0 } },
+  { chip: "E♭", rootL: "E", p: { D:-1, C:0, B:1, E:-1, F:0, G:0, A:0 } },
   { chip: "E", rootL: "E", p: { D:0, C:1, B:-1, E:0, F:-1, G:-1, A:-1 } },
   { chip: "F", rootL: "F", p: { D:0, C:-1, B:0, E:-1, F:0, G:0, A:0 } },
-  { chip: "F♯/G♭", rootL: "G", p: { D:1, C:0, B:-1, E:0, F:-1, G:-1, A:-1 } },
+  { chip: "G♭", rootL: "G", p: { D:1, C:0, B:-1, E:0, F:-1, G:-1, A:-1 } },
   { chip: "G", rootL: "G", p: { D:-1, C:-1, B:0, E:0, F:0, G:0, A:0 } },
-  { chip: "G♯/A♭", rootL: "A", p: { D:0, C:0, B:-1, E:1, F:0, G:-1, A:-1 } },
+  { chip: "A♭", rootL: "A", p: { D:0, C:0, B:-1, E:1, F:0, G:-1, A:-1 } },
   { chip: "A", rootL: "A", p: { D:-1, C:-1, B:0, E:-1, F:1, G:0, A:0 } },
   { chip: "B♭",    rootL: "B", p: { D:0, C:0, B:-1, E:0, F:-1, G:0, A:-1 } },
   { chip: "B", rootL: "B", p: { D:-1, C:-1, B:0, E:-1, F:0, G:1, A:0 } },
 ];
 // Kumoi (1 2 ♭3 5 6): 5 of 12.
 const KUMOI_DEFS = [
-  { chip: "C♯/D♭", rootL: "D", p: { D:-1, C:1, B:-1, E:-1, F:-1, G:1, A:-1 } },
-  { chip: "D♯/E♭", rootL: "E", p: { D:1, C:0, B:-1, E:-1, F:0, G:-1, A:1 } },
+  { chip: "D♭", rootL: "D", p: { D:-1, C:1, B:-1, E:-1, F:-1, G:1, A:-1 } },
+  { chip: "E♭", rootL: "E", p: { D:1, C:0, B:-1, E:-1, F:0, G:-1, A:1 } },
   { chip: "F", rootL: "F", p: { D:0, C:0, B:1, E:1, F:0, G:0, A:-1 } },
-  { chip: "G♯/A♭", rootL: "G", p: { D:1, C:-1, B:-1, E:-1, F:0, G:1, A:-1 } },
-  { chip: "A♯/B♭", rootL: "B", p: { D:-1, C:0, B:-1, E:1, F:0, G:0, A:1 } },
+  { chip: "A♭", rootL: "A", p: { D:1, C:-1, B:-1, E:-1, F:0, G:1, A:-1 } },
+  { chip: "B♭", rootL: "B", p: { D:-1, C:0, B:-1, E:1, F:0, G:0, A:1 } },
 ];
 // Iwato (1 ♭2 4 ♭5 ♭7): 4 of 12; a mode of Hirajoshi (same collections).
 const IWATO_DEFS = [
   { chip: "C", rootL: "C", p: { D:-1, C:0, B:-1, E:1, F:0, G:-1, A:1 } },
   { chip: "F", rootL: "F", p: { D:1, C:-1, B:0, E:-1, F:0, G:-1, A:1 } },
   { chip: "G", rootL: "G", p: { D:-1, C:0, B:1, E:1, F:0, G:0, A:-1 } },
-  { chip: "A♯/B♭", rootL: "B", p: { D:1, C:-1, B:-1, E:0, F:-1, G:1, A:-1 } },
+  { chip: "B♭", rootL: "B", p: { D:1, C:-1, B:-1, E:0, F:-1, G:1, A:-1 } },
 ];
 // In / sakura (1 ♭2 4 5 ♭6): 4 of 12; also a mode of Hirajoshi.
 const IN_DEFS = [
   { chip: "C", rootL: "C", p: { D:-1, C:0, B:1, E:1, F:0, G:0, A:-1 } },
-  { chip: "D♯/E♭", rootL: "E", p: { D:1, C:-1, B:-1, E:-1, F:-1, G:1, A:-1 } },
+  { chip: "E♭", rootL: "E", p: { D:1, C:-1, B:-1, E:-1, F:-1, G:1, A:-1 } },
   { chip: "F", rootL: "F", p: { D:-1, C:0, B:-1, E:1, F:0, G:-1, A:1 } },
-  { chip: "A♯/B♭", rootL: "B", p: { D:1, C:-1, B:-1, E:-1, F:0, G:-1, A:1 } },
+  { chip: "B♭", rootL: "B", p: { D:1, C:-1, B:-1, E:-1, F:0, G:-1, A:1 } },
 ];
 // Insen (1 ♭2 4 5 ♭7): 5 of 12; a distinct collection.
 const INSEN_DEFS = [
   { chip: "C", rootL: "C", p: { D:-1, C:0, B:-1, E:1, F:0, G:0, A:1 } },
-  { chip: "D♯/E♭", rootL: "E", p: { D:-1, C:1, B:-1, E:-1, F:-1, G:1, A:-1 } },
+  { chip: "E♭", rootL: "E", p: { D:-1, C:1, B:-1, E:-1, F:-1, G:1, A:-1 } },
   { chip: "F", rootL: "F", p: { D:1, C:0, B:-1, E:-1, F:0, G:-1, A:1 } },
   { chip: "G", rootL: "G", p: { D:0, C:0, B:1, E:1, F:0, G:0, A:-1 } },
-  { chip: "A♯/B♭", rootL: "B", p: { D:1, C:-1, B:-1, E:-1, F:0, G:1, A:-1 } },
+  { chip: "B♭", rootL: "B", p: { D:1, C:-1, B:-1, E:-1, F:0, G:1, A:-1 } },
 ];
 // Major 7th arpeggio (1 3 5 7): 4 of 12.
 const MAJ7_DEFS = [
-  { chip: "C♯/D♭", rootL: "D", p: { D:-1, C:0, B:1, E:1, F:0, G:1, A:-1 } },
+  { chip: "D♭", rootL: "D", p: { D:-1, C:0, B:1, E:1, F:0, G:1, A:-1 } },
   { chip: "E", rootL: "E", p: { D:1, C:-1, B:0, E:0, F:-1, G:1, A:-1 } },
-  { chip: "F♯/G♭", rootL: "G", p: { D:-1, C:1, B:-1, E:1, F:0, G:-1, A:1 } },
+  { chip: "G♭", rootL: "G", p: { D:-1, C:1, B:-1, E:1, F:0, G:-1, A:1 } },
   { chip: "B", rootL: "B", p: { D:1, C:-1, B:0, E:-1, F:1, G:-1, A:1 } },
 ];
 // Minor 7th arpeggio (1 ♭3 5 ♭7): 5 of 12.
 const MIN7_DEFS = [
-  { chip: "C♯/D♭", rootL: "D", p: { D:-1, C:-1, B:0, E:0, F:-1, G:1, A:-1 } },
-  { chip: "D♯/E♭", rootL: "E", p: { D:-1, C:1, B:-1, E:-1, F:1, G:-1, A:1 } },
+  { chip: "D♭", rootL: "D", p: { D:-1, C:-1, B:0, E:0, F:-1, G:1, A:-1 } },
+  { chip: "E♭", rootL: "E", p: { D:-1, C:1, B:-1, E:-1, F:1, G:-1, A:1 } },
   { chip: "F", rootL: "F", p: { D:1, C:0, B:1, E:-1, F:0, G:1, A:-1 } },
-  { chip: "G♯/A♭", rootL: "A", p: { D:1, C:-1, B:0, E:-1, F:1, G:-1, A:-1 } },
-  { chip: "A♯/B♭", rootL: "B", p: { D:-1, C:1, B:-1, E:1, F:0, G:1, A:-1 } },
+  { chip: "A♭", rootL: "A", p: { D:1, C:-1, B:0, E:-1, F:1, G:-1, A:-1 } },
+  { chip: "B♭", rootL: "B", p: { D:-1, C:1, B:-1, E:1, F:0, G:1, A:-1 } },
 ];
 // Half-diminished 7th arpeggio (1 ♭3 ♭5 ♭7): 5 of 12.
 const HALFDIM_DEFS = [
@@ -415,7 +415,7 @@ const HALFDIM_DEFS = [
   { chip: "D", rootL: "D", p: { D:0, C:0, B:1, E:1, F:0, G:1, A:-1 } },
   { chip: "F", rootL: "F", p: { D:1, C:-1, B:0, E:-1, F:0, G:1, A:-1 } },
   { chip: "G", rootL: "G", p: { D:-1, C:1, B:-1, E:1, F:0, G:0, A:1 } },
-  { chip: "A♯/B♭", rootL: "B", p: { D:-1, C:1, B:-1, E:0, F:-1, G:1, A:-1 } },
+  { chip: "B♭", rootL: "B", p: { D:-1, C:1, B:-1, E:0, F:-1, G:1, A:-1 } },
 ];
 const PRESET_CATEGORIES = [
   {
@@ -589,15 +589,14 @@ const PRESET_CATEGORIES = [
 // by name; the category data above is the single source of truth.
 const PRESET_GROUPS = [
   { group: "Major scales", categories: [
-    "Major", "Harmonic major", "Double harmonic major", "Hungarian major", "Neapolitan major",
+    "Major", "Harmonic major", "Double harmonic major", "Hungarian major", "Neapolitan major", "Blues major",
   ] },
   { group: "Minor scales", categories: [
-    "Minor (natural)", "Minor (harmonic)", "Minor (melodic, ascending)", "Hungarian minor", "Neapolitan minor",
+    "Minor (natural)", "Minor (harmonic)", "Minor (melodic, ascending)", "Hungarian minor", "Neapolitan minor", "Blues minor",
   ] },
   { group: "Pentatonic & Japanese", categories: [
     "Major pentatonic", "Minor pentatonic", "Hirajoshi pentatonic", "Kumoi", "Iwato", "In (sakura)", "Insen",
   ] },
-  { group: "Blues", categories: ["Blues major", "Blues minor"] },
   { group: "7th chords", categories: [
     "Major 7th", "Minor 7th", "Dominant 7th", "Half-diminished 7th", "Diminished 7th",
   ] },
