@@ -800,6 +800,7 @@ export default function HarpGliss() {
   useEffect(() => { saveJSON(LS_PRESETS, userPresets); }, [userPresets]);
   useEffect(() => { saveJSON(LS_SETTINGS, { tailNotes, maxVoices, rootSnap, arpMask }); }, [tailNotes, maxVoices, rootSnap, arpMask]);
   useEffect(() => { try { localStorage.setItem(LS_DARK, darkMode ? "1" : "0"); } catch {} }, [darkMode]);
+  useEffect(() => { document.body.style.backgroundColor = darkMode ? "#1a1a2e" : "#fafafa"; }, [darkMode]);
 
   const pedalsRef = useRef(pedals);
   const speedRef = useRef(speed);
