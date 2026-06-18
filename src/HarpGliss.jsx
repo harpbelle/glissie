@@ -180,7 +180,7 @@ const DIM7_DEFS = [
   { chip: "On C♯ (C♯–E–G–B♭)",  rootL: "C", p: { D:-1, C:1,  B:-1, E:0,  F:-1, G:0,  A:1 } },  // D♭ C♯ B♭ E F♭ G A♯
   { chip: "On D (D–F–G♯–B)",    rootL: "D", p: { D:0,  C:-1, B:0,  E:1,  F:0,  G:1,  A:-1 } }, // D C♭ B E♯ F G♯ A♭
 ];
-// Hirajoshi pentatonic (1, 2, ♭3, 5, ♭6): only 4 roots are possible; the scale
+// Hirajoshi (1, 2, ♭3, 5, ♭6): only 4 roots are possible; the scale
 // has two major-third gaps, each of which can strand a string letter. All four
 // canonical configs double root and 5th.
 const HIRAJOSHI_DEFS = [
@@ -492,9 +492,9 @@ const PRESET_CATEGORIES = [
     })),
   },
   {
-    category: "Hirajoshi pentatonic",
+    category: "Hirajoshi",
     items: HIRAJOSHI_DEFS.map(d => ({
-      chip: d.chip, name: `${d.chip} Hirajoshi pentatonic`, rootL: d.rootL, pedals: { ...d.p },
+      chip: d.chip, name: `${d.chip} Hirajoshi`, rootL: d.rootL, pedals: { ...d.p },
     })),
   },
   {
@@ -595,7 +595,7 @@ const PRESET_GROUPS = [
     "Minor (natural)", "Minor (harmonic)", "Minor (melodic, ascending)", "Hungarian minor", "Neapolitan minor", "Blues minor",
   ] },
   { group: "Pentatonic & Japanese", categories: [
-    "Major pentatonic", "Minor pentatonic", "Hirajoshi pentatonic", "Kumoi", "Iwato", "In (sakura)", "Insen",
+    "Major pentatonic", "Minor pentatonic", "Hirajoshi", "Kumoi", "Iwato", "In (sakura)", "Insen",
   ] },
   { group: "7th chords", categories: [
     "Major 7th", "Minor 7th", "Dominant 7th", "Half-diminished 7th", "Diminished 7th",
