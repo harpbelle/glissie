@@ -14,7 +14,7 @@
 
 ## Notes
 
-- **Flat preference**: If a preset scale, especially pentatonic scales, has multiple pedal configurations that result in the same pitch class, flat preference is applied i.e. the pedal configuration with the most number of flats is used. 
+- **Flat preference**: If a preset scale, especially pentatonic scales, has multiple pedal configurations that result an enharmonically equivalent pitch class, flat preference is applied i.e. the pedal configuration with the most number of flats is used in the preset. 
 
 ## Credits
 
