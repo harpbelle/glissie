@@ -12,6 +12,10 @@
 - **Save, import, and export** your own custom pedal configurations to share with other users.
 - **Real sampled harp** (VCSL, CC0) with an adjustable sostenuto wash.
 
+## Notes
+
+- **Flat preference**: If a preset scale, especially pentatonic scales, has multiple pedal configurations that result in the same pitch class, flat preference is applied i.e. the pedal configuration with the most number of flats is used. 
+
 ## Credits
 
 - **Audio**: Concert Harp from the [Versilian Community Sample Library](https://github.com/sgossner/VCSL) (CC0 1.0).
