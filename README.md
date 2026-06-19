@@ -14,7 +14,7 @@
 
 ## Notes
 
-- **Flat preference**: If a preset scale, has multiple pedal configurations that result an enharmonically equivalent pitch class, flat preference is applied i.e. the pedal configuration with the most number of flats is used in the preset for the default scale.
+- **Flat preference**: If a preset scale has multiple pedal configurations that result an enharmonically equivalent pitch class, flat preference is applied i.e. the pedal configuration with the most number of flats is used in the preset for the default scale.
 
 - **Alternate configurations**: Multiple pedal configurations that result in enharmonically equivalent pitch classes are all included as alternative configurations.
 
