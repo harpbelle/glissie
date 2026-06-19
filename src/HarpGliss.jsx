@@ -760,6 +760,19 @@ export default function HarpGliss() {
   const [playing, setPlaying] = useState(false);
   const [currentIdx, setCurrentIdx] = useState(null);
   const [showHelp, setShowHelp] = useState(false);
+  const [detExpand, setDetExpand] = useState(false);
+  const [detOverflow, setDetOverflow] = useState(false);
+  const detRef = useRef(null);
+  useEffect(() => { setDetExpand(false); }, [pedals]);
+  useEffect(() => {
+    const el = detRef.current;
+    if (!el) { setDetOverflow(false); return; }
+    const check = () => setDetOverflow(el.scrollWidth > el.clientWidth);
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  });
   const [showPresets, setShowPresets] = useState(false);
   const [openCategory, setOpenCategory] = useState(null);
   const [openGroup, setOpenGroup] = useState(null);
@@ -1571,9 +1584,20 @@ export default function HarpGliss() {
         </div>
       </div>
       <div style={{ fontSize:12, color:t.text3, marginBottom:12, minHeight:16 }}>
-        {presetMatches.length > 0
-          ? <>Detected: <strong>{presetMatches.join(" · ")}</strong></>
-          : "Custom pedal configuration"}
+        {presetMatches.length === 0
+          ? "Custom pedal configuration"
+          : <div style={{ display:"flex", alignItems:"baseline", gap:4 }}>
+              <div ref={detRef} style={{
+                flex:1, overflow:"hidden",
+                ...(detExpand ? {} : { whiteSpace:"nowrap", textOverflow:"ellipsis" }),
+              }}>
+                Detected: <strong>{presetMatches.join(" · ")}</strong>
+              </div>
+              {(detOverflow || detExpand) && <button onClick={() => setDetExpand(x => !x)} style={{
+                background:"none", border:"none", cursor:"pointer", padding:0,
+                fontSize:11, color:t.text5, flexShrink:0,
+              }}>{detExpand ? "▲" : "▼"}</button>}
+            </div>}
       </div>
 
       {/* Help */}
