@@ -375,9 +375,9 @@ const KUMOI_DEFS = [
 // Iwato (1 ♭2 4 ♭5 ♭7): 4 of 12; a mode of Hirajoshi (same collections).
 const IWATO_DEFS = [
   { chip: "C", rootL: "C", p: { D:-1, C:0, B:-1, E:1, F:0, G:-1, A:1 } },
-  { chip: "F", rootL: "F", p: { D:1, C:-1, B:0, E:-1, F:0, G:-1, A:1 } },
+  { chip: "F", rootL: "F", p: { D:1, C:-1, B:-1, E:-1, F:0, G:-1, A:1 } },
   { chip: "G", rootL: "G", p: { D:-1, C:0, B:1, E:1, F:0, G:0, A:-1 } },
-  { chip: "B♭", rootL: "B", p: { D:1, C:-1, B:-1, E:0, F:-1, G:1, A:-1 } },
+  { chip: "B♭", rootL: "B", p: { D:1, C:-1, B:-1, E:-1, F:-1, G:1, A:-1 } },
 ];
 // In / sakura (1 ♭2 4 5 ♭6): 4 of 12; also a mode of Hirajoshi.
 const IN_DEFS = [
