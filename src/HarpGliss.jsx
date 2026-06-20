@@ -403,37 +403,37 @@ const KUMOI_DEFS = [
 // Iwato (1 ♭2 4 ♭5 ♭7): 4 of 12; a mode of Hirajoshi (same collections).
 const IWATO_DEFS = [
   { chip: "C", rootL: "C", p: { D:-1, C:0, B:-1, E:1, F:0, G:-1, A:1 } },
-  { chip: "B♯", rootL: "B", p: { D:-1, C:1, B:1, E:1, F:0, G:-1, A:1 } },
-  { chip: "F", rootL: "F", p: { D:1, C:-1, B:-1, E:-1, F:0, G:-1, A:1 } },
   { chip: "E♯", rootL: "E", p: { D:1, C:-1, B:-1, E:1, F:1, G:-1, A:1 } },
+  { chip: "F", rootL: "F", p: { D:1, C:-1, B:-1, E:-1, F:0, G:-1, A:1 } },
   { chip: "G", rootL: "G", p: { D:-1, C:0, B:1, E:1, F:0, G:0, A:-1 } },
   { chip: "A♯", rootL: "A", p: { D:1, C:-1, B:0, E:-1, F:-1, G:1, A:1 } },
   { chip: "B♭", rootL: "B", p: { D:1, C:-1, B:-1, E:-1, F:-1, G:1, A:-1 } },
+  { chip: "B♯", rootL: "B", p: { D:-1, C:1, B:1, E:1, F:0, G:-1, A:1 } },
 ];
 
 // In / sakura (1 ♭2 4 5 ♭6): 4 of 12; also a mode of Hirajoshi.
 const IN_DEFS = [
   { chip: "C", rootL: "C", p: { D:-1, C:0, B:1, E:1, F:0, G:0, A:-1 } },
-  { chip: "B♯", rootL: "B", p: { D:-1, C:1, B:1, E:1, F:0, G:0, A:-1 } },
   { chip: "D♯", rootL: "D", p: { D:1, C:-1, B:-1, E:0, F:-1, G:1, A:-1 } },
   { chip: "E♭", rootL: "E", p: { D:1, C:-1, B:-1, E:-1, F:-1, G:1, A:-1 } },
-  { chip: "F", rootL: "F", p: { D:-1, C:0, B:-1, E:1, F:0, G:-1, A:1 } },
   { chip: "E♯", rootL: "E", p: { D:-1, C:0, B:-1, E:1, F:1, G:-1, A:1 } },
+  { chip: "F", rootL: "F", p: { D:-1, C:0, B:-1, E:1, F:0, G:-1, A:1 } },
   { chip: "A♯", rootL: "A", p: { D:1, C:-1, B:0, E:-1, F:0, G:-1, A:1 } },
   { chip: "B♭", rootL: "B", p: { D:1, C:-1, B:-1, E:-1, F:0, G:-1, A:1 } },
+  { chip: "B♯", rootL: "B", p: { D:-1, C:1, B:1, E:1, F:0, G:0, A:-1 } },
 ];
 
 // Insen (1 ♭2 4 5 ♭7): 5 of 12; a distinct collection.
 const INSEN_DEFS = [
   { chip: "C", rootL: "C", p: { D:-1, C:0, B:-1, E:1, F:0, G:0, A:1 } },
-  { chip: "B♯", rootL: "B", p: { D:-1, C:1, B:1, E:1, F:0, G:0, A:1 } },
   { chip: "D♯", rootL: "D", p: { D:1, C:1, B:-1, E:0, F:-1, G:1, A:-1 } },
   { chip: "E♭", rootL: "E", p: { D:-1, C:1, B:-1, E:-1, F:-1, G:1, A:-1 } },
-  { chip: "F", rootL: "F", p: { D:1, C:0, B:-1, E:-1, F:0, G:-1, A:1 } },
   { chip: "E♯", rootL: "E", p: { D:1, C:0, B:-1, E:1, F:1, G:-1, A:1 } },
+  { chip: "F", rootL: "F", p: { D:1, C:0, B:-1, E:-1, F:0, G:-1, A:1 } },
   { chip: "G", rootL: "G", p: { D:0, C:0, B:1, E:1, F:0, G:0, A:-1 } },
   { chip: "A♯", rootL: "A", p: { D:1, C:-1, B:0, E:-1, F:0, G:1, A:1 } },
   { chip: "B♭", rootL: "B", p: { D:1, C:-1, B:-1, E:-1, F:0, G:1, A:-1 } },
+  { chip: "B♯", rootL: "B", p: { D:-1, C:1, B:1, E:1, F:0, G:0, A:1 } },
 ];
 
 
@@ -539,16 +539,16 @@ const IWATO_ALT_DEFS = [
   { chip: "C (1)", rootL: "C", p: { D:-1, C:0, B:-1, E:1, F:1, G:-1, A:1 } },
   { chip: "C (2)", rootL: "C", p: { D:-1, C:0, B:1, E:1, F:0, G:-1, A:1 } },
   { chip: "C (3)", rootL: "C", p: { D:-1, C:0, B:1, E:1, F:1, G:-1, A:1 } },
-  { chip: "B♯ (1)", rootL: "B", p: { D:-1, C:1, B:1, E:1, F:1, G:-1, A:1 } },
+  { chip: "E♯ (1)", rootL: "E", p: { D:1, C:-1, B:0, E:1, F:1, G:-1, A:1 } },
   { chip: "F (1)", rootL: "F", p: { D:1, C:-1, B:-1, E:1, F:0, G:-1, A:1 } },
   { chip: "F (2)", rootL: "F", p: { D:1, C:-1, B:0, E:-1, F:0, G:-1, A:1 } },
   { chip: "F (3)", rootL: "F", p: { D:1, C:-1, B:0, E:1, F:0, G:-1, A:1 } },
-  { chip: "E♯ (1)", rootL: "E", p: { D:1, C:-1, B:0, E:1, F:1, G:-1, A:1 } },
   { chip: "G (1)", rootL: "G", p: { D:-1, C:1, B:1, E:1, F:0, G:0, A:-1 } },
   { chip: "A♯ (1)", rootL: "A", p: { D:1, C:-1, B:0, E:0, F:-1, G:1, A:1 } },
   { chip: "B♭ (1)", rootL: "B", p: { D:1, C:-1, B:-1, E:-1, F:-1, G:1, A:1 } },
   { chip: "B♭ (2)", rootL: "B", p: { D:1, C:-1, B:-1, E:0, F:-1, G:1, A:-1 } },
   { chip: "B♭ (3)", rootL: "B", p: { D:1, C:-1, B:-1, E:0, F:-1, G:1, A:1 } },
+  { chip: "B♯ (1)", rootL: "B", p: { D:-1, C:1, B:1, E:1, F:1, G:-1, A:1 } },
 ];
 
 const IN_ALT_DEFS = [
@@ -556,10 +556,10 @@ const IN_ALT_DEFS = [
   { chip: "D♯ (2)", rootL: "D", p: { D:1, C:-1, B:0, E:0, F:-1, G:1, A:1 } },
   { chip: "E♭ (1)", rootL: "E", p: { D:1, C:-1, B:-1, E:-1, F:-1, G:1, A:1 } },
   { chip: "E♭ (2)", rootL: "E", p: { D:1, C:-1, B:0, E:-1, F:-1, G:1, A:1 } },
-  { chip: "F (1)", rootL: "F", p: { D:-1, C:0, B:1, E:1, F:0, G:-1, A:1 } },
-  { chip: "F (2)", rootL: "F", p: { D:-1, C:1, B:1, E:1, F:0, G:-1, A:1 } },
   { chip: "E♯ (1)", rootL: "E", p: { D:-1, C:0, B:1, E:1, F:1, G:-1, A:1 } },
   { chip: "E♯ (2)", rootL: "E", p: { D:-1, C:1, B:1, E:1, F:1, G:-1, A:1 } },
+  { chip: "F (1)", rootL: "F", p: { D:-1, C:0, B:1, E:1, F:0, G:-1, A:1 } },
+  { chip: "F (2)", rootL: "F", p: { D:-1, C:1, B:1, E:1, F:0, G:-1, A:1 } },
   { chip: "A♯ (1)", rootL: "A", p: { D:1, C:-1, B:0, E:1, F:0, G:-1, A:1 } },
   { chip: "A♯ (2)", rootL: "A", p: { D:1, C:-1, B:0, E:1, F:1, G:-1, A:1 } },
   { chip: "B♭ (1)", rootL: "B", p: { D:1, C:-1, B:-1, E:1, F:0, G:-1, A:1 } },
@@ -572,10 +572,10 @@ const INSEN_ALT_DEFS = [
   { chip: "E♭ (1)", rootL: "E", p: { D:-1, C:1, B:-1, E:-1, F:-1, G:1, A:1 } },
   { chip: "E♭ (2)", rootL: "E", p: { D:1, C:1, B:-1, E:-1, F:-1, G:1, A:-1 } },
   { chip: "E♭ (3)", rootL: "E", p: { D:1, C:1, B:-1, E:-1, F:-1, G:1, A:1 } },
+  { chip: "E♯ (1)", rootL: "E", p: { D:1, C:0, B:1, E:1, F:1, G:-1, A:1 } },
   { chip: "F (1)", rootL: "F", p: { D:1, C:0, B:-1, E:1, F:0, G:-1, A:1 } },
   { chip: "F (2)", rootL: "F", p: { D:1, C:0, B:1, E:-1, F:0, G:-1, A:1 } },
   { chip: "F (3)", rootL: "F", p: { D:1, C:0, B:1, E:1, F:0, G:-1, A:1 } },
-  { chip: "E♯ (1)", rootL: "E", p: { D:1, C:0, B:1, E:1, F:1, G:-1, A:1 } },
   { chip: "A♯ (1)", rootL: "A", p: { D:1, C:-1, B:0, E:1, F:0, G:1, A:1 } },
   { chip: "B♭ (1)", rootL: "B", p: { D:1, C:-1, B:-1, E:-1, F:0, G:1, A:1 } },
   { chip: "B♭ (2)", rootL: "B", p: { D:1, C:-1, B:-1, E:1, F:0, G:1, A:-1 } },
