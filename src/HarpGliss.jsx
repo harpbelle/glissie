@@ -859,10 +859,10 @@ const PRESET_CATEGORIES = [
   {
     category: "Augmented scale",
     items: AUGMENTED_DEFS.map(d => ({
-      chip: d.chip, name: `Augmented scale ${d.chip.split(" (")[0].replace("On", "on")}`, rootL: d.rootL, pedals: { ...d.p },
+      chip: d.chip, name: `Augmented scale ${d.chip.replace("On", "on")}`, rootL: d.rootL, pedals: { ...d.p },
     })),
     altItems: AUGMENTED_ALT_DEFS.map(d => ({
-      chip: d.chip, name: `Augmented scale ${d.chip.split(" (")[0].replace("On", "on")}`, rootL: d.rootL, pedals: { ...d.p },
+      chip: d.chip, name: `Augmented scale ${d.chip.replace("On", "on")}`, rootL: d.rootL, pedals: { ...d.p },
     })),
   },
   {
