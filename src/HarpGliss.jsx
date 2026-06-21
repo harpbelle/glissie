@@ -721,20 +721,20 @@ const PRESET_CATEGORIES = [
     })),
   },
   {
-    category: "Minor (natural)",
+    category: "Natural minor",
     items: MINOR_DEFS.map(([chip, rootL, majorName]) => {
       const maj = MAJOR_SCALES.find(m => m.name === majorName);
       return { chip, name: `${chip} minor`, rootL, pedals: { ...maj.p } };
     }),
   },
   {
-    category: "Minor (harmonic)",
+    category: "Harmonic minor",
     items: HARM_MINOR_DEFS.map(d => ({
       chip: d.chip, name: `${d.chip} harmonic minor`, rootL: d.rootL, pedals: { ...d.p },
     })),
   },
   {
-    category: "Minor (melodic, ascending)",
+    category: "Melodic minor (ascending)",
     items: MELODIC_MINOR_DEFS.map(d => ({
       chip: d.chip, name: `${d.chip} melodic minor (ascending)`, rootL: d.rootL, pedals: { ...d.p },
     })),
@@ -935,7 +935,7 @@ const PRESET_GROUPS = [
     "Major", "Harmonic major", "Double harmonic major", "Hungarian major", "Neapolitan major", "Blues major",
   ] },
   { group: "Minor scales", categories: [
-    "Minor (natural)", "Minor (harmonic)", "Minor (melodic, ascending)", "Hungarian minor", "Neapolitan minor", "Blues minor",
+    "Natural minor", "Harmonic minor", "Melodic minor (ascending)", "Hungarian minor", "Neapolitan minor", "Blues minor",
   ] },
   { group: "Pentatonic & Japanese", categories: [
     "Major pentatonic", "Minor pentatonic", "Hirajoshi", "Kumoi", "Iwato", "In (sakura)", "Insen",
