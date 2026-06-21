@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",
-    "postdeploy": "gh api repos/harpbelle/glissie/deployments --paginate --jq \".[1:] | .[].id\" > deploy_ids.txt && (for /f %%i in (deploy_ids.txt) do gh api --method DELETE repos/harpbelle/glissie/deployments/%%i || (echo FAILED TO DELETE DEPLOYMENT %%i & exit /b 1)) && echo All old deployments cleaned up successfully"
+    "postdeploy": "gh api repos/harpbelle/glissie/deployments --paginate --jq \".[1:] | .[].id\" > deploy_ids.txt && (for /f %i in (deploy_ids.txt) do gh api --method DELETE repos/harpbelle/glissie/deployments/%i || (echo FAILED TO DELETE DEPLOYMENT %i & exit /b 1)) && echo All old deployments cleaned up successfully"
   },
   "dependencies": {
     "react": "^18.3.1",
