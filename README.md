@@ -8,7 +8,7 @@
 - **Scale/Arpeggio mode** plays toggleable notes from any start note for a selectable number of octaves.
 - **Glissando mode** sweeps between two notes at 1-40 notes per second, ascending, descending, or both.
 - **Live pedalling**: move a pedal mid-glissando and hear the pitch change immediately, just like the real instrument.
-- **27 preset scale & chord types** (majors, minors, pentatonics, the Japanese scales, the 7th chords, whole tone, and more), each computed for every root that is possible on a pedal harp; the configurations are derived by exhaustive search, so the app doubles as a reference for what the instrument can and can't gliss.
+- **27 preset scale & chord types** (majors, minors, hexatonics, pentatonics, the Japanese scales, the 7th chords, whole tone, and more), each computed for every root that is gliss-possible on a pedal harp; the configurations are derived by exhaustive search, so the app doubles as a reference for what the instrument can and can't gliss.
 - **Save, import, and export** your own custom pedal configurations to share with other users.
 - **Real sampled harp** (VCSL, CC0) with an adjustable sostenuto wash.
 
