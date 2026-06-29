@@ -1952,7 +1952,7 @@ export default function HarpGliss() {
           </button>
         </div>
       </div>
-      <div style={{ fontSize:12, color:t.text3, marginBottom:12, minHeight:16 }}>
+      <div style={{ fontSize:12, lineHeight:"18px", color:t.text3, marginBottom:12, minHeight:18 }}>
         {presetMatches.length === 0
           ? "Custom pedal configuration"
           : <div style={{ display:"flex", alignItems:"baseline", gap:4 }}>
