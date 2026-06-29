@@ -931,19 +931,21 @@ const PRESET_CATEGORIES = [
 // Three-level hierarchy: group → category → roots. Groups reference categories
 // by name; the category data above is the single source of truth.
 const PRESET_GROUPS = [
-  { group: "Major scales", categories: [
-    "Major", "Harmonic major", "Double harmonic major", "Hungarian major", "Neapolitan major", "Blues major",
+  { group: "Major", categories: [
+    "Major", "Harmonic major", "Double harmonic major", "Hungarian major", "Neapolitan major",
   ] },
-  { group: "Minor scales", categories: [
-    "Natural minor", "Harmonic minor", "Melodic minor (ascending)", "Hungarian minor", "Neapolitan minor", "Blues minor",
+  { group: "Minor", categories: [
+    "Natural minor", "Harmonic minor", "Melodic minor (ascending)", "Hungarian minor", "Neapolitan minor",
   ] },
-  { group: "Pentatonic & Japanese", categories: [
+  { group: "Hexatonic", categories: [
+    "Blues major", "Blues minor", "Prometheus", "Whole tone", "Augmented scale",
+  ] },
+  { group: "Pentatonic", categories: [
     "Major pentatonic", "Minor pentatonic", "Hirajoshi", "Kumoi", "Iwato", "In (sakura)", "Insen",
   ] },
   { group: "7th chords", categories: [
     "Major 7th", "Minor 7th", "Dominant 7th", "Half-diminished 7th", "Diminished 7th",
   ] },
-  { group: "Symmetric & other", categories: ["Augmented scale", "Whole tone", "Prometheus"] },
 ];
 const CATEGORY_BY_NAME = Object.fromEntries(PRESET_CATEGORIES.map(c => [c.category, c]));
 const ALL_PRESETS_FLAT = PRESET_CATEGORIES.flatMap(c =>
