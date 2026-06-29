@@ -859,10 +859,10 @@ const PRESET_CATEGORIES = [
   {
     category: "Augmented scale",
     items: AUGMENTED_DEFS.map(d => ({
-      chip: d.chip, name: `Augmented scale ${d.chip.replace("On", "on")}`, rootL: d.rootL, pedals: { ...d.p },
+      chip: d.chip.replace("On ", ""), name: `${d.chip.replace("On ", "")} augmented scale`, rootL: d.rootL, pedals: { ...d.p },
     })),
     altItems: AUGMENTED_ALT_DEFS.map(d => ({
-      chip: d.chip, name: `Augmented scale ${d.chip.replace("On", "on")}`, rootL: d.rootL, pedals: { ...d.p },
+      chip: d.chip.replace("On ", ""), name: `${d.chip.replace("On ", "")} augmented scale`, rootL: d.rootL, pedals: { ...d.p },
     })),
   },
   {
@@ -913,18 +913,18 @@ const PRESET_CATEGORIES = [
   {
     category: "Diminished 7th",
     items: DIM7_DEFS.map(d => ({
-      chip: d.chip, name: `Diminished 7th ${d.chip.split(" (")[0].replace("On", "on")}`, rootL: d.rootL, pedals: { ...d.p },
+      chip: d.chip.split(" (")[0].replace("On ", ""), name: `${d.chip.split(" (")[0].replace("On ", "")} diminished 7th`, rootL: d.rootL, pedals: { ...d.p },
     })),
   },
   {
     category: "Whole tone",
     items: [
-      { chip: "On C (F♭=E)",  name: "Whole tone on C",  rootL: "C", pedals: { C:0,D:0,E:0,F:-1,G:-1,A:-1,B:-1 } },
-      { chip: "On D♭ (C♭=B)", name: "Whole tone on D♭", rootL: "D", pedals: { C:-1,D:-1,E:-1,F:0,G:0,A:0,B:0 } },
+      { chip: "C (F♭=E)",  name: "Whole tone on C",  rootL: "C", pedals: { C:0,D:0,E:0,F:-1,G:-1,A:-1,B:-1 } },
+      { chip: "D♭ (C♭=B)", name: "Whole tone on D♭", rootL: "D", pedals: { C:-1,D:-1,E:-1,F:0,G:0,A:0,B:0 } },
     ],
     altItems: [
-      { chip: "On B♯ (B♯=C)", name: "Whole tone on B♯", rootL: "B", pedals: { C:0,D:0,E:0,F:1,G:1,A:1,B:1 } },
-      { chip: "On C♯ (E♯=F)", name: "Whole tone on C♯", rootL: "C", pedals: { C:1,D:1,E:1,F:0,G:0,A:0,B:0 } },
+      { chip: "B♯ (B♯=C)", name: "Whole tone on B♯", rootL: "B", pedals: { C:0,D:0,E:0,F:1,G:1,A:1,B:1 } },
+      { chip: "C♯ (E♯=F)", name: "Whole tone on C♯", rootL: "C", pedals: { C:1,D:1,E:1,F:0,G:0,A:0,B:0 } },
     ],
   },
 ];
