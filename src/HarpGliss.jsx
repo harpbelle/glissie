@@ -154,13 +154,14 @@ const PENTATONIC_DEFS = [
   { chip: "B", rootL: "B", p: { D:-1, C:1, B:0, E:-1, F:1, G:-1, A:-1 } },
 ];
 
-// Dominant 7ths: only 5 roots are possible on a pedal harp (the other seven
-// strand at least one string letter with no chord tone reachable). Canonical
-// configs double root, 3rd and 5th, leaving the 7th single.
+// Dominant 7ths: 5 of 12 pitch-class sets, 8 configs.
 const DOM7_DEFS = [
+  { chip: "C♯", rootL: "C", p: { D:-1, C:1, B:0, E:1, F:0, G:1, A:-1 } },
   { chip: "D♭", rootL: "D", p: { D:-1, C:-1, B:0, E:1, F:0, G:1, A:-1 } },
   { chip: "E", rootL: "E", p: { D:0, C:-1, B:0, E:0, F:-1, G:1, A:-1 } },
+  { chip: "F♯", rootL: "F", p: { D:-1, C:1, B:-1, E:0, F:1, G:-1, A:1 } },
   { chip: "G♭", rootL: "G", p: { D:-1, C:1, B:-1, E:0, F:-1, G:-1, A:1 } },
+  { chip: "G♯", rootL: "G", p: { D:1, C:0, B:1, E:-1, F:1, G:1, A:-1 } },
   { chip: "A♭", rootL: "A", p: { D:1, C:0, B:1, E:-1, F:1, G:-1, A:-1 } },
   { chip: "B", rootL: "B", p: { D:1, C:-1, B:0, E:-1, F:1, G:-1, A:0 } },
 ];
@@ -646,32 +647,13 @@ const PROMETHEUS_ALT_DEFS = [
   { chip: "B (2)", rootL: "B", p: { D:1, C:1, B:0, E:1, F:0, G:1, A:0 } },
 ];
 
-const MAJ7_ALT_DEFS = [
-  { chip: "C♭ (1)", rootL: "C", p: { D:1, C:-1, B:0, E:-1, F:1, G:-1, A:1 } },
-  { chip: "D♭ (1)", rootL: "D", p: { D:-1, C:1, B:1, E:1, F:0, G:1, A:-1 } },
-  { chip: "F♭ (1)", rootL: "F", p: { D:1, C:-1, B:0, E:0, F:-1, G:1, A:-1 } },
-  { chip: "G♭ (1)", rootL: "G", p: { D:-1, C:1, B:-1, E:1, F:1, G:-1, A:1 } },
-];
+const MAJ7_ALT_DEFS = [];
 
-const MIN7_ALT_DEFS = [
-  { chip: "D♭ (1)", rootL: "D", p: { D:-1, C:1, B:0, E:0, F:-1, G:1, A:-1 } },
-  { chip: "E♭ (1)", rootL: "E", p: { D:1, C:1, B:-1, E:-1, F:1, G:-1, A:1 } },
-  { chip: "F (1)", rootL: "F", p: { D:1, C:0, B:1, E:1, F:0, G:1, A:-1 } },
-  { chip: "A♭ (1)", rootL: "A", p: { D:1, C:-1, B:0, E:-1, F:1, G:1, A:-1 } },
-  { chip: "B♭ (1)", rootL: "B", p: { D:-1, C:1, B:-1, E:1, F:0, G:1, A:1 } },
-];
+const MIN7_ALT_DEFS = [];
 
-const DOM7_ALT_DEFS = [
-  { chip: "D♭ (1)", rootL: "D", p: { D:-1, C:1, B:0, E:1, F:0, G:1, A:-1 } },
-  { chip: "G♭ (1)", rootL: "G", p: { D:-1, C:1, B:-1, E:0, F:1, G:-1, A:1 } },
-  { chip: "A♭ (1)", rootL: "A", p: { D:1, C:0, B:1, E:-1, F:1, G:1, A:-1 } },
-];
+const DOM7_ALT_DEFS = [];
 
-const HALFDIM_ALT_DEFS = [
-  { chip: "C (1)", rootL: "C", p: { D:1, C:0, B:1, E:-1, F:1, G:-1, A:1 } },
-  { chip: "F (1)", rootL: "F", p: { D:1, C:-1, B:0, E:1, F:0, G:1, A:-1 } },
-  { chip: "B♭ (1)", rootL: "B", p: { D:-1, C:1, B:-1, E:0, F:-1, G:1, A:1 } },
-];
+const HALFDIM_ALT_DEFS = [];
 
 const DIM7_ALT_DEFS = [];
 
@@ -687,30 +669,42 @@ const AUGMENTED_ALT_DEFS = [
 ];
 
 
-// Major 7th arpeggio (1 3 5 7): 4 of 12.
+// Major 7th arpeggio (1 3 5 7): 4 of 12 pitch-class sets, 8 configs.
 const MAJ7_DEFS = [
   { chip: "C♭", rootL: "C", p: { D:1, C:-1, B:-1, E:-1, F:1, G:-1, A:1 } },
+  { chip: "C♯", rootL: "C", p: { D:-1, C:1, B:1, E:1, F:0, G:1, A:-1 } },
   { chip: "D♭", rootL: "D", p: { D:-1, C:0, B:1, E:1, F:0, G:1, A:-1 } },
+  { chip: "E", rootL: "E", p: { D:1, C:-1, B:0, E:0, F:-1, G:1, A:-1 } },
   { chip: "F♭", rootL: "F", p: { D:1, C:-1, B:0, E:-1, F:-1, G:1, A:-1 } },
+  { chip: "F♯", rootL: "F", p: { D:-1, C:1, B:-1, E:1, F:1, G:-1, A:1 } },
   { chip: "G♭", rootL: "G", p: { D:-1, C:1, B:-1, E:1, F:0, G:-1, A:1 } },
+  { chip: "B", rootL: "B", p: { D:1, C:-1, B:0, E:-1, F:1, G:-1, A:1 } },
 ];
 
-// Minor 7th arpeggio (1 ♭3 5 ♭7): 5 of 12.
+// Minor 7th arpeggio (1 ♭3 5 ♭7): 5 of 12 pitch-class sets, 10 configs.
 const MIN7_DEFS = [
+  { chip: "C♯", rootL: "C", p: { D:-1, C:1, B:0, E:0, F:-1, G:1, A:-1 } },
   { chip: "D♭", rootL: "D", p: { D:-1, C:-1, B:0, E:0, F:-1, G:1, A:-1 } },
+  { chip: "D♯", rootL: "D", p: { D:1, C:1, B:-1, E:-1, F:1, G:-1, A:1 } },
   { chip: "E♭", rootL: "E", p: { D:-1, C:1, B:-1, E:-1, F:1, G:-1, A:1 } },
+  { chip: "E♯", rootL: "E", p: { D:1, C:0, B:1, E:1, F:0, G:1, A:-1 } },
   { chip: "F", rootL: "F", p: { D:1, C:0, B:1, E:-1, F:0, G:1, A:-1 } },
+  { chip: "G♯", rootL: "G", p: { D:1, C:-1, B:0, E:-1, F:1, G:1, A:-1 } },
   { chip: "A♭", rootL: "A", p: { D:1, C:-1, B:0, E:-1, F:1, G:-1, A:-1 } },
+  { chip: "A♯", rootL: "A", p: { D:-1, C:1, B:-1, E:1, F:0, G:1, A:1 } },
   { chip: "B♭", rootL: "B", p: { D:-1, C:1, B:-1, E:1, F:0, G:1, A:-1 } },
 ];
 
-// Half-diminished 7th arpeggio (1 ♭3 ♭5 ♭7): 5 of 12.
+// Half-diminished 7th arpeggio (1 ♭3 ♭5 ♭7): 5 of 12 pitch-class sets, 8 configs.
 const HALFDIM_DEFS = [
   { chip: "C", rootL: "C", p: { D:1, C:0, B:-1, E:-1, F:1, G:-1, A:1 } },
   { chip: "D", rootL: "D", p: { D:0, C:0, B:1, E:1, F:0, G:1, A:-1 } },
+  { chip: "E♯", rootL: "E", p: { D:1, C:-1, B:0, E:1, F:0, G:1, A:-1 } },
   { chip: "F", rootL: "F", p: { D:1, C:-1, B:0, E:-1, F:0, G:1, A:-1 } },
   { chip: "G", rootL: "G", p: { D:-1, C:1, B:-1, E:1, F:0, G:0, A:1 } },
+  { chip: "A♯", rootL: "A", p: { D:-1, C:1, B:-1, E:0, F:-1, G:1, A:1 } },
   { chip: "B♭", rootL: "B", p: { D:-1, C:1, B:-1, E:0, F:-1, G:1, A:-1 } },
+  { chip: "B♯", rootL: "B", p: { D:1, C:0, B:1, E:-1, F:1, G:-1, A:1 } },
 ];
 
 const PRESET_CATEGORIES = [
