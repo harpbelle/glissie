@@ -158,11 +158,11 @@ const PENTATONIC_DEFS = [
 // strand at least one string letter with no chord tone reachable). Canonical
 // configs double root, 3rd and 5th, leaving the 7th single.
 const DOM7_DEFS = [
-  { chip: "C♭", rootL: "C", p: { D:1, C:-1, B:0, E:-1, F:1, G:-1, A:0 } },
   { chip: "D♭", rootL: "D", p: { D:-1, C:-1, B:0, E:1, F:0, G:1, A:-1 } },
-  { chip: "F♭", rootL: "F", p: { D:0, C:-1, B:0, E:0, F:-1, G:1, A:-1 } },
+  { chip: "E", rootL: "E", p: { D:0, C:-1, B:0, E:0, F:-1, G:1, A:-1 } },
   { chip: "G♭", rootL: "G", p: { D:-1, C:1, B:-1, E:0, F:-1, G:-1, A:1 } },
   { chip: "A♭", rootL: "A", p: { D:1, C:0, B:1, E:-1, F:1, G:-1, A:-1 } },
+  { chip: "B", rootL: "B", p: { D:1, C:-1, B:0, E:-1, F:1, G:-1, A:0 } },
 ];
 
 // Minor pentatonics share configs with their relative major pentatonics
@@ -186,9 +186,9 @@ const MINOR_PENT_DEFS = [
 // so e.g. C°7 = E♭°7 = G♭°7 = A°7). Each has exactly one possible config;
 // every string letter has a single valid pedal position.
 const DIM7_DEFS = [
-  { chip: "On C (C–E♭–F♯–A)",   rootL: "C", p: { D:1,  C:0,  B:1,  E:-1, F:1,  G:-1, A:0 } },  // D♯ C B♯ E♭ F♯ G♭ A
+  { chip: "On C (C–E♭–G♭–A)",   rootL: "C", p: { D:1,  C:0,  B:1,  E:-1, F:1,  G:-1, A:0 } },  // D♯ C B♯ E♭ F♯ G♭ A
   { chip: "On C♯ (C♯–E–G–B♭)",  rootL: "C", p: { D:-1, C:1,  B:-1, E:0,  F:-1, G:0,  A:1 } },  // D♭ C♯ B♭ E F♭ G A♯
-  { chip: "On D (D–F–G♯–B)",    rootL: "D", p: { D:0,  C:-1, B:0,  E:1,  F:0,  G:1,  A:-1 } }, // D C♭ B E♯ F G♯ A♭
+  { chip: "On D (D–F–A♭–B)",    rootL: "D", p: { D:0,  C:-1, B:0,  E:1,  F:0,  G:1,  A:-1 } }, // D C♭ B E♯ F G♯ A♭
 ];
 // Hirajoshi (1, 2, ♭3, 5, ♭6): only 4 roots are possible; the scale
 // has two major-third gaps, each of which can strand a string letter. All four
