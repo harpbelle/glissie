@@ -275,17 +275,17 @@ const BLUES_MAJOR_DEFS = [
 // Blues minor (1, ♭3, 4, ♭5, 5, ♭7): hexatonic. 11 of 12 roots; D is
 // impossible. Relative of blues major (C blues major = A blues minor).
 const BLUES_MINOR_DEFS = [
-  { chip: "C♭", rootL: "C", p: { D:0, C:-1, B:0, E:0, F:0, G:-1, A:0 } },
   { chip: "C", rootL: "C", p: { D:1, C:0, B:-1, E:1, F:1, G:0, A:1 } },
   { chip: "D♭", rootL: "D", p: { D:-1, C:-1, B:0, E:0, F:1, G:0, A:-1 } },
   { chip: "E♭", rootL: "E", p: { D:-1, C:1, B:-1, E:-1, F:1, G:1, A:0 } },
-  { chip: "F♭", rootL: "F", p: { D:0, C:-1, B:-1, E:0, F:-1, G:0, A:0 } },
+  { chip: "E", rootL: "E", p: { D:0, C:-1, B:-1, E:0, F:-1, G:0, A:0 } },
   { chip: "F", rootL: "F", p: { D:1, C:0, B:0, E:-1, F:0, G:1, A:1 } },
   { chip: "G♭", rootL: "G", p: { D:-1, C:0, B:0, E:0, F:-1, G:-1, A:0 } },
   { chip: "G", rootL: "G", p: { D:0, C:1, B:1, E:1, F:0, G:0, A:1 } },
   { chip: "A♭", rootL: "A", p: { D:0, C:1, B:0, E:-1, F:1, G:-1, A:-1 } },
   { chip: "A", rootL: "A", p: { D:0, C:0, B:1, E:-1, F:-1, G:0, A:0 } },
   { chip: "B♭", rootL: "B", p: { D:1, C:1, B:-1, E:0, F:0, G:1, A:-1 } },
+  { chip: "B", rootL: "B", p: { D:0, C:-1, B:0, E:0, F:0, G:-1, A:0 } },
 ];
 
 // ── Completing the ≤7-note scale survey ──
@@ -359,9 +359,10 @@ const HUNG_MAJOR_DEFS = [
   { chip: "A", rootL: "A", p: { D:1, C:1, B:1, E:0, F:1, G:0, A:0 } },
   { chip: "B♭", rootL: "B", p: { D:0, C:1, B:-1, E:0, F:0, G:0, A:-1 } },
 ];
-// Augmented scale (1 ♯2 3 5 ♭6 7): symmetric; 4 distinct collections.
+// Augmented scale (1 ♯2 3 5 ♭6 7): symmetric; 4 distinct collections, 5 configs.
 const AUGMENTED_DEFS = [
   { chip: "On C", rootL: "C", p: { D:1, C:0, B:0, E:-1, F:-1, G:0, A:-1 } },
+  { chip: "On C♯", rootL: "C", p: { D:-1, C:1, B:1, E:0, F:0, G:1, A:0 } },
   { chip: "On D♭", rootL: "D", p: { D:-1, C:0, B:1, E:0, F:0, G:1, A:0 } },
   { chip: "On D", rootL: "D", p: { D:0, C:1, B:-1, E:1, F:0, G:-1, A:0 } },
   { chip: "On E♭", rootL: "E", p: { D:0, C:-1, B:-1, E:-1, F:1, G:0, A:1 } },
@@ -601,7 +602,6 @@ const BLUES_MAJOR_ALT_DEFS = [
 ];
 
 const BLUES_MINOR_ALT_DEFS = [
-  { chip: "C♭ (1) ⚠E♯", rootL: "C", p: { D:0, C:-1, B:0, E:1, F:-1, G:-1, A:0 } },
   { chip: "C (1)", rootL: "C", p: { D:1, C:0, B:1, E:1, F:1, G:0, A:1 } },
   { chip: "D♭ (1)", rootL: "D", p: { D:-1, C:1, B:0, E:0, F:1, G:0, A:-1 } },
   { chip: "E♭ (1)", rootL: "E", p: { D:1, C:1, B:-1, E:-1, F:1, G:1, A:0 } },
@@ -615,6 +615,7 @@ const BLUES_MINOR_ALT_DEFS = [
   { chip: "B♭ (1)", rootL: "B", p: { D:1, C:1, B:-1, E:0, F:0, G:1, A:1 } },
   { chip: "B♭ (2) ⚠E♯", rootL: "B", p: { D:1, C:1, B:-1, E:1, F:-1, G:1, A:-1 } },
   { chip: "B♭ (3) ⚠E♯", rootL: "B", p: { D:1, C:1, B:-1, E:1, F:-1, G:1, A:1 } },
+  { chip: "B (1) ⚠E♯", rootL: "B", p: { D:0, C:-1, B:0, E:1, F:-1, G:-1, A:0 } },
 ];
 
 const PROMETHEUS_ALT_DEFS = [
@@ -659,9 +660,8 @@ const DIM7_ALT_DEFS = [];
 
 const AUGMENTED_ALT_DEFS = [
   { chip: "On C (1)", rootL: "C", p: { D:1, C:0, B:0, E:0, F:-1, G:0, A:-1 } },
-  { chip: "On D♭ (1)", rootL: "D", p: { D:-1, C:1, B:1, E:0, F:0, G:1, A:0 } },
-  { chip: "On D♭ (2) ⚠E♯", rootL: "D", p: { D:-1, C:0, B:1, E:1, F:-1, G:1, A:0 } },
-  { chip: "On D♭ (3) ⚠E♯", rootL: "D", p: { D:-1, C:1, B:1, E:1, F:-1, G:1, A:0 } },
+  { chip: "On C♯ (1) ⚠E♯", rootL: "C", p: { D:-1, C:1, B:1, E:1, F:-1, G:1, A:0 } },
+  { chip: "On D♭ (1) ⚠E♯", rootL: "D", p: { D:-1, C:0, B:1, E:1, F:-1, G:1, A:0 } },
   { chip: "On D (1)", rootL: "D", p: { D:0, C:1, B:-1, E:1, F:1, G:-1, A:0 } },
   { chip: "On E♭ (1)", rootL: "E", p: { D:0, C:-1, B:0, E:-1, F:1, G:0, A:1 } },
   { chip: "On B♯ (1) ⚠B♯", rootL: "B", p: { D:1, C:-1, B:1, E:-1, F:-1, G:0, A:-1 } },
@@ -914,12 +914,11 @@ const PRESET_CATEGORIES = [
     category: "Whole tone",
     items: [
       { chip: "C (F♭=E)",  name: "Whole tone on C",  rootL: "C", pedals: { C:0,D:0,E:0,F:-1,G:-1,A:-1,B:-1 } },
-      { chip: "D♭ (C♭=B)", name: "Whole tone on D♭", rootL: "D", pedals: { C:-1,D:-1,E:-1,F:0,G:0,A:0,B:0 } },
-    ],
-    altItems: [
-      { chip: "B♯ (B♯=C)", name: "Whole tone on B♯", rootL: "B", pedals: { C:0,D:0,E:0,F:1,G:1,A:1,B:1 } },
       { chip: "C♯ (E♯=F)", name: "Whole tone on C♯", rootL: "C", pedals: { C:1,D:1,E:1,F:0,G:0,A:0,B:0 } },
+      { chip: "D♭ (C♭=B)", name: "Whole tone on D♭", rootL: "D", pedals: { C:-1,D:-1,E:-1,F:0,G:0,A:0,B:0 } },
+      { chip: "B♯ (B♯=C)", name: "Whole tone on B♯", rootL: "B", pedals: { C:0,D:0,E:0,F:1,G:1,A:1,B:1 } },
     ],
+    altItems: [],
   },
 ];
 // Three-level hierarchy: group → category → roots. Groups reference categories
