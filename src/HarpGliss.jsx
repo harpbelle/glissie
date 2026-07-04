@@ -168,19 +168,27 @@ const DOM7_DEFS = [
 
 // Minor pentatonics share configs with their relative major pentatonics
 // (identical pitch-class sets); start note follows the minor root.
+// 18 root names, 45 configs; sharp roots split out where the enharmonic
+// string spells the root (e.g. C:♯ in a D♭ config → its own C♯ chip).
 const MINOR_PENT_DEFS = [
-  { chip: "C♭", rootL: "C", p: { D:0, C:-1, B:0, E:0, F:-1, G:-1, A:0 } },
   { chip: "C", rootL: "C", p: { D:1, C:0, B:-1, E:-1, F:0, G:0, A:1 } },
+  { chip: "C♯", rootL: "C", p: { D:-1, C:1, B:0, E:0, F:-1, G:-1, A:-1 } },
   { chip: "D♭", rootL: "D", p: { D:-1, C:-1, B:0, E:0, F:-1, G:-1, A:-1 } },
   { chip: "D", rootL: "D", p: { D:0, C:0, B:1, E:1, F:0, G:0, A:0 } },
+  { chip: "D♯", rootL: "D", p: { D:1, C:1, B:-1, E:-1, F:1, G:-1, A:-1 } },
   { chip: "E♭", rootL: "E", p: { D:-1, C:1, B:-1, E:-1, F:1, G:-1, A:-1 } },
-  { chip: "F♭", rootL: "F", p: { D:0, C:-1, B:0, E:0, F:-1, G:0, A:0 } },
+  { chip: "E", rootL: "E", p: { D:0, C:-1, B:0, E:0, F:-1, G:0, A:0 } },
+  { chip: "E♯", rootL: "E", p: { D:1, C:0, B:-1, E:1, F:0, G:1, A:-1 } },
   { chip: "F", rootL: "F", p: { D:1, C:0, B:-1, E:-1, F:0, G:1, A:-1 } },
+  { chip: "F♯", rootL: "F", p: { D:-1, C:-1, B:0, E:0, F:1, G:-1, A:0 } },
   { chip: "G♭", rootL: "G", p: { D:-1, C:-1, B:0, E:0, F:-1, G:-1, A:0 } },
   { chip: "G", rootL: "G", p: { D:0, C:0, B:-1, E:1, F:0, G:0, A:1 } },
+  { chip: "G♯", rootL: "G", p: { D:-1, C:-1, B:0, E:-1, F:1, G:1, A:-1 } },
   { chip: "A♭", rootL: "A", p: { D:-1, C:-1, B:0, E:-1, F:1, G:-1, A:-1 } },
   { chip: "A", rootL: "A", p: { D:0, C:0, B:1, E:0, F:-1, G:0, A:0 } },
+  { chip: "A♯", rootL: "A", p: { D:-1, C:1, B:-1, E:-1, F:0, G:1, A:1 } },
   { chip: "B♭", rootL: "B", p: { D:-1, C:1, B:-1, E:-1, F:0, G:1, A:-1 } },
+  { chip: "B", rootL: "B", p: { D:0, C:-1, B:0, E:0, F:-1, G:-1, A:0 } },
 ];
 
 // Diminished 7ths: only 3 distinct collections exist (the chord is symmetric,
@@ -470,39 +478,33 @@ const PENTATONIC_ALT_DEFS = [
 ];
 
 const MINOR_PENT_ALT_DEFS = [
-  { chip: "C♭ (1)", rootL: "C", p: { D:0, C:-1, B:0, E:0, F:1, G:-1, A:0 } },
   { chip: "C (1)", rootL: "C", p: { D:1, C:0, B:-1, E:1, F:0, G:0, A:1 } },
   { chip: "C (2)", rootL: "C", p: { D:1, C:0, B:1, E:-1, F:0, G:0, A:1 } },
   { chip: "C (3)", rootL: "C", p: { D:1, C:0, B:1, E:1, F:0, G:0, A:1 } },
+  { chip: "C♯ (1)", rootL: "C", p: { D:-1, C:1, B:0, E:0, F:1, G:-1, A:-1 } },
+  { chip: "C♯ (2)", rootL: "C", p: { D:-1, C:1, B:0, E:0, F:1, G:1, A:-1 } },
   { chip: "D♭ (1)", rootL: "D", p: { D:-1, C:-1, B:0, E:0, F:1, G:-1, A:-1 } },
-  { chip: "D♭ (2)", rootL: "D", p: { D:-1, C:1, B:0, E:0, F:-1, G:-1, A:-1 } },
-  { chip: "D♭ (3)", rootL: "D", p: { D:-1, C:-1, B:0, E:0, F:1, G:1, A:-1 } },
-  { chip: "D♭ (4)", rootL: "D", p: { D:-1, C:1, B:0, E:0, F:1, G:-1, A:-1 } },
-  { chip: "D♭ (5)", rootL: "D", p: { D:-1, C:1, B:0, E:0, F:1, G:1, A:-1 } },
+  { chip: "D♭ (2)", rootL: "D", p: { D:-1, C:-1, B:0, E:0, F:1, G:1, A:-1 } },
+  { chip: "D♯ (1)", rootL: "D", p: { D:1, C:1, B:-1, E:-1, F:1, G:1, A:-1 } },
+  { chip: "D♯ (2)", rootL: "D", p: { D:1, C:1, B:-1, E:-1, F:1, G:1, A:1 } },
   { chip: "E♭ (1)", rootL: "E", p: { D:-1, C:1, B:-1, E:-1, F:1, G:1, A:-1 } },
-  { chip: "E♭ (2)", rootL: "E", p: { D:1, C:1, B:-1, E:-1, F:1, G:-1, A:-1 } },
-  { chip: "E♭ (3)", rootL: "E", p: { D:-1, C:1, B:-1, E:-1, F:1, G:1, A:1 } },
-  { chip: "E♭ (4)", rootL: "E", p: { D:1, C:1, B:-1, E:-1, F:1, G:1, A:-1 } },
-  { chip: "E♭ (5)", rootL: "E", p: { D:1, C:1, B:-1, E:-1, F:1, G:1, A:1 } },
+  { chip: "E♭ (2)", rootL: "E", p: { D:-1, C:1, B:-1, E:-1, F:1, G:1, A:1 } },
+  { chip: "E♯ (1)", rootL: "E", p: { D:1, C:0, B:-1, E:1, F:0, G:1, A:1 } },
+  { chip: "E♯ (2)", rootL: "E", p: { D:1, C:0, B:1, E:1, F:0, G:1, A:1 } },
   { chip: "F (1)", rootL: "F", p: { D:1, C:0, B:-1, E:-1, F:0, G:1, A:1 } },
-  { chip: "F (2)", rootL: "F", p: { D:1, C:0, B:-1, E:1, F:0, G:1, A:-1 } },
-  { chip: "F (3)", rootL: "F", p: { D:1, C:0, B:-1, E:1, F:0, G:1, A:1 } },
-  { chip: "F (4)", rootL: "F", p: { D:1, C:0, B:1, E:-1, F:0, G:1, A:1 } },
-  { chip: "F (5)", rootL: "F", p: { D:1, C:0, B:1, E:1, F:0, G:1, A:1 } },
-  { chip: "G♭ (1)", rootL: "G", p: { D:-1, C:-1, B:0, E:0, F:1, G:-1, A:0 } },
-  { chip: "G♭ (2)", rootL: "G", p: { D:-1, C:1, B:0, E:0, F:-1, G:-1, A:0 } },
-  { chip: "G♭ (3)", rootL: "G", p: { D:-1, C:1, B:0, E:0, F:1, G:-1, A:0 } },
+  { chip: "F (2)", rootL: "F", p: { D:1, C:0, B:1, E:-1, F:0, G:1, A:1 } },
+  { chip: "F♯ (1)", rootL: "F", p: { D:-1, C:1, B:0, E:0, F:1, G:-1, A:0 } },
+  { chip: "G♭ (1)", rootL: "G", p: { D:-1, C:1, B:0, E:0, F:-1, G:-1, A:0 } },
   { chip: "G (1)", rootL: "G", p: { D:0, C:0, B:1, E:1, F:0, G:0, A:1 } },
-  { chip: "A♭ (1)", rootL: "A", p: { D:-1, C:-1, B:0, E:-1, F:1, G:1, A:-1 } },
-  { chip: "A♭ (2)", rootL: "A", p: { D:-1, C:1, B:0, E:-1, F:1, G:-1, A:-1 } },
-  { chip: "A♭ (3)", rootL: "A", p: { D:-1, C:1, B:0, E:-1, F:1, G:1, A:-1 } },
-  { chip: "A♭ (4)", rootL: "A", p: { D:1, C:1, B:0, E:-1, F:1, G:-1, A:-1 } },
-  { chip: "A♭ (5)", rootL: "A", p: { D:1, C:1, B:0, E:-1, F:1, G:1, A:-1 } },
-  { chip: "B♭ (1)", rootL: "B", p: { D:-1, C:1, B:-1, E:-1, F:0, G:1, A:1 } },
-  { chip: "B♭ (2)", rootL: "B", p: { D:1, C:1, B:-1, E:-1, F:0, G:1, A:-1 } },
-  { chip: "B♭ (3)", rootL: "B", p: { D:1, C:1, B:-1, E:-1, F:0, G:1, A:1 } },
-  { chip: "B♭ (4)", rootL: "B", p: { D:1, C:1, B:-1, E:1, F:0, G:1, A:-1 } },
-  { chip: "B♭ (5)", rootL: "B", p: { D:1, C:1, B:-1, E:1, F:0, G:1, A:1 } },
+  { chip: "G♯ (1)", rootL: "G", p: { D:-1, C:1, B:0, E:-1, F:1, G:1, A:-1 } },
+  { chip: "G♯ (2)", rootL: "G", p: { D:1, C:1, B:0, E:-1, F:1, G:1, A:-1 } },
+  { chip: "A♭ (1)", rootL: "A", p: { D:-1, C:1, B:0, E:-1, F:1, G:-1, A:-1 } },
+  { chip: "A♭ (2)", rootL: "A", p: { D:1, C:1, B:0, E:-1, F:1, G:-1, A:-1 } },
+  { chip: "A♯ (1)", rootL: "A", p: { D:1, C:1, B:-1, E:-1, F:0, G:1, A:1 } },
+  { chip: "A♯ (2)", rootL: "A", p: { D:1, C:1, B:-1, E:1, F:0, G:1, A:1 } },
+  { chip: "B♭ (1)", rootL: "B", p: { D:1, C:1, B:-1, E:-1, F:0, G:1, A:-1 } },
+  { chip: "B♭ (2)", rootL: "B", p: { D:1, C:1, B:-1, E:1, F:0, G:1, A:-1 } },
+  { chip: "B (1)", rootL: "B", p: { D:0, C:-1, B:0, E:0, F:1, G:-1, A:0 } },
 ];
 
 const HIRAJOSHI_ALT_DEFS = [
@@ -1975,7 +1977,7 @@ export default function HarpGliss() {
           <strong>Pedals:</strong> D C B = left foot, E F G A = right foot. Up = flat (♭), middle = natural (♮), down = sharp (♯). Click to move the pedal one notch (it bounces: up, middle, down, middle, up…), or drag it directly.<br/><br/>
           <strong>Live pedalling:</strong> Pedal changes apply immediately, even during playback.<br/><br/>
           <strong>Reset:</strong> Restores all settings (pedals, mode, direction, notes, speed, tuning) to their defaults, but keeps your saved configurations. <strong>Reset all</strong> does the same and also deletes your saved configurations; it asks for a second tap to confirm.<br/><br/>
-          <strong>Enharmonic doublings:</strong> Some presets (pentatonics, whole tone) set two adjacent strings to the same pitch; e.g. B♯=C. This is how harpists achieve scales of fewer than seven notes in a glissando; the doubled notes reinforce the sound.<br/><br/>
+          <strong>Enharmonic doublings:</strong> Some presets (pentatonics, whole tone) set two adjacent strings to the same pitch; e.g. B♯=C. This is how harpists achieve scales of fewer than seven notes in a glissando; the doubled notes reinforce the sound. A few root names (e.g. D♯ major pentatonic, G♭ blues minor) simply name the string the run starts on, where the configuration offers no theoretically cleaner enharmonic root.<br/><br/>
           <strong>Out-of-order configurations:</strong> A glissando sweeps the strings in playing order, so its pitches should climb steadily. A few enharmonic spellings break this: a sharpened E♯ sounds above the following F♭, or a B♯ above the next C♭ at the octave change, so the run dips mid-sweep. The default for each scale always avoids this. Configurations that don't are still kept; the effect can be striking, but are listed last among a root's alternates and marked ⚠ with the pitch class that falls out of order, e.g. ⚠E♯.<br/><br/>
           <strong>7C and 7D:</strong> On a real concert grand these two strings are not connected to the pedal mechanism and must be pre-tuned by hand. In this app they follow the pedals for convenience.<br/><br/>
           <strong>Saving &amp; sharing:</strong> Saved configurations are stored on your own device and persist between visits; except if you choose "Reset all" or clear your browser data, which removes them. To save a copy on your local disk or to share with other users, use Export. Each appears under "My configurations," where you can rename (✎) or delete (🗑) it; saving a name you've already used asks whether to overwrite. <strong>Export</strong> lets you tick which configurations to download as a small file you can back up or send to another user; <strong>Import</strong> loads configurations from such a file. On import, identical configurations you already have are skipped, and one whose name you already use for a <em>different</em> setting is automatically renamed.<br/><br/>
