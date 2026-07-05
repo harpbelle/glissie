@@ -3,14 +3,14 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Glissie — a pedal harp glissando simulator. Configure pedals, hear the gliss.",
+  "description": "Glissie: a pedal harp glissando simulator. Configure pedals, hear the gliss.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",
-    "postdeploy": "timeout /t 600 /nobreak && gh api repos/harpbelle/glissie/deployments --paginate --jq \".[1:] | .[].id\" > deploy_ids.txt && (for /f %i in (deploy_ids.txt) do gh api --method DELETE repos/harpbelle/glissie/deployments/%i || (echo FAILED TO DELETE DEPLOYMENT %i & exit /b 1)) && echo All old deployments cleaned up successfully"
+    "postdeploy": "timeout /t 300 /nobreak && gh api repos/harpbelle/glissie/deployments --paginate --jq \".[1:] | .[].id\" > deploy_ids.txt && (for /f %i in (deploy_ids.txt) do gh api --method DELETE repos/harpbelle/glissie/deployments/%i || (echo FAILED TO DELETE DEPLOYMENT %i & exit /b 1)) && echo All old deployments cleaned up successfully"
   },
   "dependencies": {
     "react": "^18.3.1",
