@@ -168,7 +168,7 @@ const DOM7_DEFS = [
 
 // Minor pentatonics share configs with their relative major pentatonics
 // (identical pitch-class sets); start note follows the minor root.
-// 18 root names, 45 configs; sharp roots split out where the enharmonic
+// 19 root names, 45 configs; sharp roots split out where the enharmonic
 // string spells the root (e.g. C:♯ in a D♭ config → its own C♯ chip).
 const MINOR_PENT_DEFS = [
   { chip: "C", rootL: "C", p: { D:1, C:0, B:-1, E:-1, F:0, G:0, A:1 } },
@@ -189,6 +189,7 @@ const MINOR_PENT_DEFS = [
   { chip: "A♯", rootL: "A", p: { D:-1, C:1, B:-1, E:-1, F:0, G:1, A:1 } },
   { chip: "B♭", rootL: "B", p: { D:-1, C:1, B:-1, E:-1, F:0, G:1, A:-1 } },
   { chip: "B", rootL: "B", p: { D:0, C:-1, B:0, E:0, F:-1, G:-1, A:0 } },
+  { chip: "B♯", rootL: "B", p: { D:1, C:0, B:1, E:-1, F:0, G:0, A:1 } },
 ];
 
 // Diminished 7ths: only 3 distinct collections exist (the chord is symmetric,
@@ -280,20 +281,27 @@ const BLUES_MAJOR_DEFS = [
   { chip: "B", rootL: "B", p: { D:0, C:1, B:0, E:-1, F:1, G:-1, A:-1 } },
 ];
 
-// Blues minor (1, ♭3, 4, ♭5, 5, ♭7): hexatonic. 11 of 12 roots; D is
+// Blues minor (1, ♭3, 4, ♭5, 5, ♭7): hexatonic. 18 root names; D is
 // impossible. Relative of blues major (C blues major = A blues minor).
 const BLUES_MINOR_DEFS = [
   { chip: "C", rootL: "C", p: { D:1, C:0, B:-1, E:1, F:1, G:0, A:1 } },
+  { chip: "C♯", rootL: "C", p: { D:-1, C:1, B:0, E:0, F:1, G:0, A:-1 } },
   { chip: "D♭", rootL: "D", p: { D:-1, C:-1, B:0, E:0, F:1, G:0, A:-1 } },
+  { chip: "D♯", rootL: "D", p: { D:1, C:1, B:-1, E:-1, F:1, G:1, A:0 } },
   { chip: "E♭", rootL: "E", p: { D:-1, C:1, B:-1, E:-1, F:1, G:1, A:0 } },
   { chip: "E", rootL: "E", p: { D:0, C:-1, B:-1, E:0, F:-1, G:0, A:0 } },
+  { chip: "E♯", rootL: "E", p: { D:1, C:0, B:0, E:1, F:0, G:1, A:1 } },
   { chip: "F", rootL: "F", p: { D:1, C:0, B:0, E:-1, F:0, G:1, A:1 } },
+  { chip: "F♯", rootL: "F", p: { D:-1, C:0, B:0, E:0, F:1, G:-1, A:0 } },
   { chip: "G♭", rootL: "G", p: { D:-1, C:0, B:0, E:0, F:-1, G:-1, A:0 } },
   { chip: "G", rootL: "G", p: { D:0, C:1, B:1, E:1, F:0, G:0, A:1 } },
+  { chip: "G♯", rootL: "G", p: { D:0, C:1, B:0, E:-1, F:1, G:1, A:-1 } },
   { chip: "A♭", rootL: "A", p: { D:0, C:1, B:0, E:-1, F:1, G:-1, A:-1 } },
   { chip: "A", rootL: "A", p: { D:0, C:0, B:1, E:-1, F:-1, G:0, A:0 } },
+  { chip: "A♯", rootL: "A", p: { D:1, C:1, B:-1, E:0, F:0, G:1, A:1 } },
   { chip: "B♭", rootL: "B", p: { D:1, C:1, B:-1, E:0, F:0, G:1, A:-1 } },
   { chip: "B", rootL: "B", p: { D:0, C:-1, B:0, E:0, F:0, G:-1, A:0 } },
+  { chip: "B♯", rootL: "B", p: { D:1, C:0, B:1, E:1, F:1, G:0, A:1 } },
 ];
 
 // ── Completing the ≤7-note scale survey ──
@@ -479,8 +487,6 @@ const PENTATONIC_ALT_DEFS = [
 
 const MINOR_PENT_ALT_DEFS = [
   { chip: "C (1)", rootL: "C", p: { D:1, C:0, B:-1, E:1, F:0, G:0, A:1 } },
-  { chip: "C (2)", rootL: "C", p: { D:1, C:0, B:1, E:-1, F:0, G:0, A:1 } },
-  { chip: "C (3)", rootL: "C", p: { D:1, C:0, B:1, E:1, F:0, G:0, A:1 } },
   { chip: "C♯ (1)", rootL: "C", p: { D:-1, C:1, B:0, E:0, F:1, G:-1, A:-1 } },
   { chip: "C♯ (2)", rootL: "C", p: { D:-1, C:1, B:0, E:0, F:1, G:1, A:-1 } },
   { chip: "D♭ (1)", rootL: "D", p: { D:-1, C:-1, B:0, E:0, F:1, G:-1, A:-1 } },
@@ -505,6 +511,7 @@ const MINOR_PENT_ALT_DEFS = [
   { chip: "B♭ (1)", rootL: "B", p: { D:1, C:1, B:-1, E:-1, F:0, G:1, A:-1 } },
   { chip: "B♭ (2)", rootL: "B", p: { D:1, C:1, B:-1, E:1, F:0, G:1, A:-1 } },
   { chip: "B (1)", rootL: "B", p: { D:0, C:-1, B:0, E:0, F:1, G:-1, A:0 } },
+  { chip: "B♯ (1)", rootL: "B", p: { D:1, C:0, B:1, E:1, F:0, G:0, A:1 } },
 ];
 
 const HIRAJOSHI_ALT_DEFS = [
@@ -604,19 +611,12 @@ const BLUES_MAJOR_ALT_DEFS = [
 ];
 
 const BLUES_MINOR_ALT_DEFS = [
-  { chip: "C (1)", rootL: "C", p: { D:1, C:0, B:1, E:1, F:1, G:0, A:1 } },
-  { chip: "D♭ (1)", rootL: "D", p: { D:-1, C:1, B:0, E:0, F:1, G:0, A:-1 } },
-  { chip: "E♭ (1)", rootL: "E", p: { D:1, C:1, B:-1, E:-1, F:1, G:1, A:0 } },
-  { chip: "F (1)", rootL: "F", p: { D:1, C:0, B:0, E:1, F:0, G:1, A:1 } },
-  { chip: "F (2) ⚠B♯", rootL: "F", p: { D:1, C:-1, B:1, E:-1, F:0, G:1, A:1 } },
-  { chip: "F (3) ⚠B♯", rootL: "F", p: { D:1, C:-1, B:1, E:1, F:0, G:1, A:1 } },
-  { chip: "G♭ (1)", rootL: "G", p: { D:-1, C:0, B:0, E:0, F:1, G:-1, A:0 } },
-  { chip: "G♭ (2) ⚠B♯", rootL: "G", p: { D:-1, C:-1, B:1, E:0, F:-1, G:-1, A:0 } },
-  { chip: "G♭ (3) ⚠B♯", rootL: "G", p: { D:-1, C:-1, B:1, E:0, F:1, G:-1, A:0 } },
-  { chip: "A♭ (1)", rootL: "A", p: { D:0, C:1, B:0, E:-1, F:1, G:1, A:-1 } },
-  { chip: "B♭ (1)", rootL: "B", p: { D:1, C:1, B:-1, E:0, F:0, G:1, A:1 } },
-  { chip: "B♭ (2) ⚠E♯", rootL: "B", p: { D:1, C:1, B:-1, E:1, F:-1, G:1, A:-1 } },
-  { chip: "B♭ (3) ⚠E♯", rootL: "B", p: { D:1, C:1, B:-1, E:1, F:-1, G:1, A:1 } },
+  { chip: "E♯ (1) ⚠B♯", rootL: "E", p: { D:1, C:-1, B:1, E:1, F:0, G:1, A:1 } },
+  { chip: "F (1) ⚠B♯", rootL: "F", p: { D:1, C:-1, B:1, E:-1, F:0, G:1, A:1 } },
+  { chip: "F♯ (1) ⚠B♯", rootL: "F", p: { D:-1, C:-1, B:1, E:0, F:1, G:-1, A:0 } },
+  { chip: "G♭ (1) ⚠B♯", rootL: "G", p: { D:-1, C:-1, B:1, E:0, F:-1, G:-1, A:0 } },
+  { chip: "A♯ (1) ⚠E♯", rootL: "A", p: { D:1, C:1, B:-1, E:1, F:-1, G:1, A:1 } },
+  { chip: "B♭ (1) ⚠E♯", rootL: "B", p: { D:1, C:1, B:-1, E:1, F:-1, G:1, A:-1 } },
   { chip: "B (1) ⚠E♯", rootL: "B", p: { D:0, C:-1, B:0, E:1, F:-1, G:-1, A:0 } },
 ];
 
