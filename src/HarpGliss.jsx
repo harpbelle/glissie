@@ -1788,12 +1788,22 @@ export default function HarpGliss() {
       // once on touch. A mouse has a single pointer, so desktop stays single. The
       // single-pointer path is identical to the original — no cap that could wedge
       // the board, and no left/right-foot grouping.
+      // Only the left (primary) mouse button starts a drag; right/middle
+      // clicks are left to the browser. Touch pointers all qualify.
+      if (e.pointerType === "mouse" && e.button !== 0) return;
       e.currentTarget.setPointerCapture(e.pointerId);
       dragRef.current[e.pointerId] = { L, startY: e.clientY, startPos: pos, moved: false };
     }
     function onPointerMove(e) {
       const d = dragRef.current[e.pointerId];
       if (!d || d.L !== L) return;
+      // If the button was released but pointerup never reached us (pointer
+      // capture is lost when the node is replaced mid-drag), end the drag here
+      // so the pedal never follows an unpressed mouse.
+      if (e.pointerType === "mouse" && (e.buttons & 1) === 0) {
+        delete dragRef.current[e.pointerId];
+        return;
+      }
       const dy = e.clientY - d.startY;
       if (Math.abs(dy) > 8) d.moved = true;
       if (d.moved) {
@@ -1806,6 +1816,11 @@ export default function HarpGliss() {
       if (d && d.L === L && !d.moved) bouncePedal(L);
       delete dragRef.current[e.pointerId];
     }
+    function onPointerCancel(e) {
+      // Drag interrupted (capture lost, touch cancelled): keep the pedal where
+      // it is and just drop the tracking entry — no bounce, no jump.
+      delete dragRef.current[e.pointerId];
+    }
 
     return (
       <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:4, userSelect:"none", touchAction:"none" }}>
@@ -1813,6 +1828,8 @@ export default function HarpGliss() {
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
+          onPointerCancel={onPointerCancel}
+          onLostPointerCapture={onPointerCancel}
           style={{
             width:32, height:90, background:t.card2, borderRadius:6,
             border:`1.5px solid ${t.bdrS}`, position:"relative", cursor:"pointer",
