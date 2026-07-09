@@ -91,6 +91,28 @@ function buildGlissSequence(glissStart, glissEnd) {
   return rng(glissStart, glissEnd);
 }
 
+// Chord mode, hand-span rule: can `pts` (sorted string indices) be played by two
+// hands, each holding at most 4 notes that fit within `span` consecutive strings?
+// `span` counts strings inclusively (interval sense): span 10 means the lowest
+// and highest note in a hand are at most a 10th apart — e.g. 4C to 3E — i.e. an
+// index difference of at most span−1. Hand 1 greedily takes the lowest notes;
+// the remainder must fit hand 2. (Taking the lowest possible notes into hand 1
+// maximises hand 2's reach, so this greedy split is optimal — if it fails, no
+// split works.)
+function handsFeasible(pts, span) {
+  if (pts.length === 0) return true;
+  if (pts.length > 8) return false;
+  let i = 0;
+  const h1min = pts[0];
+  let c1 = 0;
+  while (i < pts.length && c1 < 4 && pts[i] - h1min <= span - 1) { i++; c1++; }
+  if (i >= pts.length) return true;
+  const h2min = pts[i];
+  let c2 = 0;
+  while (i < pts.length && c2 < 4 && pts[i] - h2min <= span - 1) { i++; c2++; }
+  return i >= pts.length;
+}
+
 const LETTERS = ["C", "D", "E", "F", "G", "A", "B"];
 function sameConfig(a, b) { return LETTERS.every(L => a[L] === b[L]); }
 
@@ -709,11 +731,104 @@ const HALFDIM_DEFS = [
   { chip: "B♯", rootL: "B", p: { D:1, C:0, B:1, E:-1, F:1, G:-1, A:1 } },
 ];
 
+// Out-of-order (⚠) enharmonic respellings of the heptatonic scales. A seven-note
+// collection maps bijectively onto the seven strings, so each of these has a
+// unique root anchor; several land on root names (B♯, E♯, F♭, C♭) that exist
+// only here, as alternates — by rule, ⚠ configs can never be defaults.
+const MAJOR_ALT_DEFS = [
+  { chip: "C (1) ⚠E♯", rootL: "C", p: { D:0, C:0, B:0, E:1, F:-1, G:0, A:0 } },
+  { chip: "E♯ (1) ⚠E♯", rootL: "E", p: { D:0, C:0, B:-1, E:1, F:-1, G:0, A:0 } },
+  { chip: "G (1) ⚠B♯", rootL: "G", p: { D:0, C:-1, B:1, E:0, F:1, G:0, A:0 } },
+  { chip: "B♯ (1) ⚠B♯", rootL: "B", p: { D:0, C:-1, B:1, E:0, F:0, G:0, A:0 } },
+  { chip: "B♯ (2) ⚠E♯,B♯", rootL: "B", p: { D:0, C:-1, B:1, E:1, F:-1, G:0, A:0 } },
+];
+const NATURAL_MINOR_ALT_DEFS = [
+  { chip: "D (1) ⚠E♯", rootL: "D", p: { D:0, C:0, B:-1, E:1, F:-1, G:0, A:0 } },
+  { chip: "E (1) ⚠B♯", rootL: "E", p: { D:0, C:-1, B:1, E:0, F:1, G:0, A:0 } },
+  { chip: "A (1) ⚠B♯", rootL: "A", p: { D:0, C:-1, B:1, E:0, F:0, G:0, A:0 } },
+  { chip: "A (2) ⚠E♯", rootL: "A", p: { D:0, C:0, B:0, E:1, F:-1, G:0, A:0 } },
+  { chip: "A (3) ⚠E♯,B♯", rootL: "A", p: { D:0, C:-1, B:1, E:1, F:-1, G:0, A:0 } },
+];
+const HARM_MINOR_ALT_DEFS = [
+  { chip: "D (1) ⚠E♯", rootL: "D", p: { D:0, C:1, B:-1, E:1, F:-1, G:0, A:0 } },
+  { chip: "E (1) ⚠B♯", rootL: "E", p: { D:1, C:-1, B:1, E:0, F:1, G:0, A:0 } },
+  { chip: "E♯ (1) ⚠E♯", rootL: "E", p: { D:-1, C:0, B:-1, E:1, F:-1, G:0, A:-1 } },
+  { chip: "A (1) ⚠B♯", rootL: "A", p: { D:0, C:-1, B:1, E:0, F:0, G:1, A:0 } },
+  { chip: "A (2) ⚠E♯", rootL: "A", p: { D:0, C:0, B:0, E:1, F:-1, G:1, A:0 } },
+  { chip: "A (3) ⚠E♯,B♯", rootL: "A", p: { D:0, C:-1, B:1, E:1, F:-1, G:1, A:0 } },
+  { chip: "B♯ (1) ⚠B♯", rootL: "B", p: { D:0, C:-1, B:1, E:-1, F:0, G:0, A:-1 } },
+];
+const MELODIC_MINOR_ALT_DEFS = [
+  { chip: "D (1) ⚠E♯", rootL: "D", p: { D:0, C:1, B:0, E:1, F:-1, G:0, A:0 } },
+  { chip: "E♯ (1) ⚠E♯", rootL: "E", p: { D:0, C:0, B:-1, E:1, F:-1, G:0, A:-1 } },
+  { chip: "A (1) ⚠B♯", rootL: "A", p: { D:0, C:-1, B:1, E:0, F:1, G:1, A:0 } },
+  { chip: "B♯ (1) ⚠B♯", rootL: "B", p: { D:0, C:-1, B:1, E:-1, F:0, G:0, A:0 } },
+];
+const HUNGARIAN_MINOR_ALT_DEFS = [
+  { chip: "D (1) ⚠E♯", rootL: "D", p: { D:0, C:1, B:-1, E:1, F:-1, G:1, A:0 } },
+  { chip: "E (1) ⚠B♯", rootL: "E", p: { D:1, C:-1, B:1, E:0, F:1, G:0, A:1 } },
+  { chip: "E♯ (1) ⚠E♯", rootL: "E", p: { D:-1, C:0, B:0, E:1, F:-1, G:0, A:-1 } },
+  { chip: "E♯ (2) ⚠E♯,B♯", rootL: "E", p: { D:-1, C:-1, B:1, E:1, F:-1, G:0, A:-1 } },
+  { chip: "F (1) ⚠B♯", rootL: "F", p: { D:-1, C:-1, B:1, E:0, F:0, G:0, A:-1 } },
+  { chip: "A (1) ⚠B♯", rootL: "A", p: { D:1, C:-1, B:1, E:0, F:0, G:1, A:0 } },
+  { chip: "A (2) ⚠E♯", rootL: "A", p: { D:1, C:0, B:0, E:1, F:-1, G:1, A:0 } },
+  { chip: "A (3) ⚠E♯,B♯", rootL: "A", p: { D:1, C:-1, B:1, E:1, F:-1, G:1, A:0 } },
+  { chip: "B♭ (1) ⚠E♯", rootL: "B", p: { D:-1, C:0, B:-1, E:1, F:-1, G:-1, A:0 } },
+  { chip: "B♯ (1) ⚠B♯", rootL: "B", p: { D:0, C:-1, B:1, E:-1, F:1, G:0, A:-1 } },
+];
+const HUNG_MAJOR_ALT_DEFS = [
+  { chip: "D♭ (1) ⚠E♯", rootL: "D", p: { D:-1, C:-1, B:-1, E:1, F:-1, G:0, A:-1 } },
+  { chip: "D (1) ⚠B♯", rootL: "D", p: { D:0, C:-1, B:1, E:1, F:1, G:1, A:0 } },
+  { chip: "F (1) ⚠B♯", rootL: "F", p: { D:0, C:-1, B:1, E:-1, F:0, G:1, A:0 } },
+  { chip: "G (1) ⚠E♯", rootL: "G", p: { D:0, C:1, B:0, E:1, F:-1, G:0, A:1 } },
+  { chip: "A♭ (1) ⚠B♯", rootL: "A", p: { D:0, C:-1, B:1, E:-1, F:0, G:-1, A:-1 } },
+  { chip: "B♭ (1) ⚠E♯", rootL: "B", p: { D:0, C:1, B:-1, E:1, F:-1, G:0, A:-1 } },
+];
+const HARM_MAJOR_ALT_DEFS = [
+  { chip: "C (1) ⚠E♯", rootL: "C", p: { D:0, C:0, B:0, E:1, F:-1, G:0, A:-1 } },
+  { chip: "E (1) ⚠B♯", rootL: "E", p: { D:1, C:-1, B:1, E:0, F:1, G:1, A:0 } },
+  { chip: "E♯ (1) ⚠E♯", rootL: "E", p: { D:-1, C:0, B:-1, E:1, F:-1, G:0, A:0 } },
+  { chip: "G (1) ⚠B♯", rootL: "G", p: { D:0, C:-1, B:1, E:-1, F:1, G:0, A:0 } },
+  { chip: "A (1) ⚠E♯", rootL: "A", p: { D:0, C:1, B:0, E:1, F:-1, G:1, A:0 } },
+  { chip: "B♯ (1) ⚠B♯", rootL: "B", p: { D:0, C:-1, B:1, E:0, F:0, G:0, A:-1 } },
+  { chip: "B♯ (2) ⚠E♯,B♯", rootL: "B", p: { D:0, C:-1, B:1, E:1, F:-1, G:0, A:-1 } },
+];
+const DBL_HARM_ALT_DEFS = [
+  { chip: "C♭ (1) ⚠B♯", rootL: "C", p: { D:1, C:-1, B:1, E:0, F:1, G:0, A:1 } },
+  { chip: "C (1) ⚠E♯", rootL: "C", p: { D:-1, C:0, B:0, E:1, F:-1, G:0, A:-1 } },
+  { chip: "E (1) ⚠B♯", rootL: "E", p: { D:1, C:-1, B:1, E:0, F:0, G:1, A:0 } },
+  { chip: "E♯ (1) ⚠E♯", rootL: "E", p: { D:-1, C:0, B:-1, E:1, F:-1, G:-1, A:0 } },
+  { chip: "F♭ (1) ⚠E♯", rootL: "F", p: { D:1, C:0, B:0, E:1, F:-1, G:1, A:0 } },
+  { chip: "F♭ (2) ⚠E♯,B♯", rootL: "F", p: { D:1, C:-1, B:1, E:1, F:-1, G:1, A:0 } },
+  { chip: "G (1) ⚠B♯", rootL: "G", p: { D:0, C:-1, B:1, E:-1, F:1, G:0, A:-1 } },
+  { chip: "A (1) ⚠E♯", rootL: "A", p: { D:0, C:1, B:-1, E:1, F:-1, G:1, A:0 } },
+  { chip: "B♯ (1) ⚠B♯", rootL: "B", p: { D:-1, C:-1, B:1, E:0, F:0, G:0, A:-1 } },
+  { chip: "B♯ (2) ⚠E♯,B♯", rootL: "B", p: { D:-1, C:-1, B:1, E:1, F:-1, G:0, A:-1 } },
+];
+const NEAP_MAJOR_ALT_DEFS = [
+  { chip: "C♭ (1) ⚠B♯", rootL: "C", p: { D:0, C:-1, B:1, E:0, F:1, G:1, A:1 } },
+  { chip: "E♯ (1) ⚠E♯", rootL: "E", p: { D:0, C:0, B:-1, E:1, F:-1, G:-1, A:-1 } },
+  { chip: "F♭ (1) ⚠E♯", rootL: "F", p: { D:1, C:1, B:0, E:1, F:-1, G:0, A:0 } },
+  { chip: "B♯ (1) ⚠B♯", rootL: "B", p: { D:-1, C:-1, B:1, E:-1, F:0, G:0, A:0 } },
+];
+const NEAP_MINOR_ALT_DEFS = [
+  { chip: "C♭ (1) ⚠B♯", rootL: "C", p: { D:0, C:-1, B:1, E:0, F:1, G:0, A:1 } },
+  { chip: "E (1) ⚠B♯", rootL: "E", p: { D:1, C:-1, B:1, E:0, F:0, G:0, A:0 } },
+  { chip: "E♯ (1) ⚠E♯", rootL: "E", p: { D:-1, C:0, B:-1, E:1, F:-1, G:-1, A:-1 } },
+  { chip: "F♭ (1) ⚠E♯", rootL: "F", p: { D:1, C:0, B:0, E:1, F:-1, G:0, A:0 } },
+  { chip: "F♭ (2) ⚠E♯,B♯", rootL: "F", p: { D:1, C:-1, B:1, E:1, F:-1, G:0, A:0 } },
+  { chip: "A (1) ⚠E♯", rootL: "A", p: { D:0, C:0, B:-1, E:1, F:-1, G:1, A:0 } },
+  { chip: "B♯ (1) ⚠B♯", rootL: "B", p: { D:-1, C:-1, B:1, E:-1, F:0, G:0, A:-1 } },
+];
+
 const PRESET_CATEGORIES = [
   {
     category: "Major",
     items: MAJOR_SCALES.map(s => ({
       chip: s.name.replace(" major", ""), name: s.name, rootL: s.rootL, pedals: { ...s.p },
+    })),
+    altItems: MAJOR_ALT_DEFS.map(d => ({
+      chip: d.chip, name: `${d.chip} major`, rootL: d.rootL, pedals: { ...d.p },
     })),
   },
   {
@@ -722,10 +837,16 @@ const PRESET_CATEGORIES = [
       const maj = MAJOR_SCALES.find(m => m.name === majorName);
       return { chip, name: `${chip} minor`, rootL, pedals: { ...maj.p } };
     }),
+    altItems: NATURAL_MINOR_ALT_DEFS.map(d => ({
+      chip: d.chip, name: `${d.chip} minor`, rootL: d.rootL, pedals: { ...d.p },
+    })),
   },
   {
     category: "Harmonic minor",
     items: HARM_MINOR_DEFS.map(d => ({
+      chip: d.chip, name: `${d.chip} harmonic minor`, rootL: d.rootL, pedals: { ...d.p },
+    })),
+    altItems: HARM_MINOR_ALT_DEFS.map(d => ({
       chip: d.chip, name: `${d.chip} harmonic minor`, rootL: d.rootL, pedals: { ...d.p },
     })),
   },
@@ -734,10 +855,16 @@ const PRESET_CATEGORIES = [
     items: MELODIC_MINOR_DEFS.map(d => ({
       chip: d.chip, name: `${d.chip} melodic minor (ascending)`, rootL: d.rootL, pedals: { ...d.p },
     })),
+    altItems: MELODIC_MINOR_ALT_DEFS.map(d => ({
+      chip: d.chip, name: `${d.chip} melodic minor (ascending)`, rootL: d.rootL, pedals: { ...d.p },
+    })),
   },
   {
     category: "Hungarian major",
     items: HUNG_MAJOR_DEFS.map(d => ({
+      chip: d.chip, name: `${d.chip} Hungarian major`, rootL: d.rootL, pedals: { ...d.p },
+    })),
+    altItems: HUNG_MAJOR_ALT_DEFS.map(d => ({
       chip: d.chip, name: `${d.chip} Hungarian major`, rootL: d.rootL, pedals: { ...d.p },
     })),
   },
@@ -746,10 +873,16 @@ const PRESET_CATEGORIES = [
     items: HUNGARIAN_DEFS.map(d => ({
       chip: d.chip, name: `${d.chip} Hungarian minor`, rootL: d.rootL, pedals: { ...d.p },
     })),
+    altItems: HUNGARIAN_MINOR_ALT_DEFS.map(d => ({
+      chip: d.chip, name: `${d.chip} Hungarian minor`, rootL: d.rootL, pedals: { ...d.p },
+    })),
   },
   {
     category: "Harmonic major",
     items: HARM_MAJOR_DEFS.map(d => ({
+      chip: d.chip, name: `${d.chip} harmonic major`, rootL: d.rootL, pedals: { ...d.p },
+    })),
+    altItems: HARM_MAJOR_ALT_DEFS.map(d => ({
       chip: d.chip, name: `${d.chip} harmonic major`, rootL: d.rootL, pedals: { ...d.p },
     })),
   },
@@ -758,16 +891,25 @@ const PRESET_CATEGORIES = [
     items: DBL_HARM_DEFS.map(d => ({
       chip: d.chip, name: `${d.chip} double harmonic major`, rootL: d.rootL, pedals: { ...d.p },
     })),
+    altItems: DBL_HARM_ALT_DEFS.map(d => ({
+      chip: d.chip, name: `${d.chip} double harmonic major`, rootL: d.rootL, pedals: { ...d.p },
+    })),
   },
   {
     category: "Neapolitan major",
     items: NEAP_MAJOR_DEFS.map(d => ({
       chip: d.chip, name: `${d.chip} Neapolitan major`, rootL: d.rootL, pedals: { ...d.p },
     })),
+    altItems: NEAP_MAJOR_ALT_DEFS.map(d => ({
+      chip: d.chip, name: `${d.chip} Neapolitan major`, rootL: d.rootL, pedals: { ...d.p },
+    })),
   },
   {
     category: "Neapolitan minor",
     items: NEAP_MINOR_DEFS.map(d => ({
+      chip: d.chip, name: `${d.chip} Neapolitan minor`, rootL: d.rootL, pedals: { ...d.p },
+    })),
+    altItems: NEAP_MINOR_ALT_DEFS.map(d => ({
       chip: d.chip, name: `${d.chip} Neapolitan minor`, rootL: d.rootL, pedals: { ...d.p },
     })),
   },
@@ -916,11 +1058,21 @@ const PRESET_CATEGORIES = [
     category: "Whole tone",
     items: [
       { chip: "C (F♭=E)",  name: "Whole tone on C",  rootL: "C", pedals: { C:0,D:0,E:0,F:-1,G:-1,A:-1,B:-1 } },
-      { chip: "C♯ (E♯=F)", name: "Whole tone on C♯", rootL: "C", pedals: { C:1,D:1,E:1,F:0,G:0,A:0,B:0 } },
+      { chip: "C♯ (D♯=E♭)", name: "Whole tone on C♯", rootL: "C", pedals: { C:1,D:1,E:-1,F:0,G:0,A:0,B:0 } },
       { chip: "D♭ (C♭=B)", name: "Whole tone on D♭", rootL: "D", pedals: { C:-1,D:-1,E:-1,F:0,G:0,A:0,B:0 } },
       { chip: "B♯ (B♯=C)", name: "Whole tone on B♯", rootL: "B", pedals: { C:0,D:0,E:0,F:1,G:1,A:1,B:1 } },
     ],
-    altItems: [],
+    // Mixed-doubling respellings. All anchor pc 0 on the open C string except the
+    // last two; the C♯=D♭ config anchors on both C♯ and D♭, so by rule it stays
+    // in the flat (D♭) family. The old pure-sharp C♯ spelling (E♯=F, 3♯) is now
+    // alternate (1) — flat preference gives the D♯=E♭ doubling (2♯) the default.
+    altItems: [
+      { chip: "C (1) (F♯=G♭)", name: "Whole tone on C (1)", rootL: "C", pedals: { C:0,D:0,E:0,F:1,G:-1,A:-1,B:-1 } },
+      { chip: "C (2) (G♯=A♭)", name: "Whole tone on C (2)", rootL: "C", pedals: { C:0,D:0,E:0,F:1,G:1,A:-1,B:-1 } },
+      { chip: "C (3) (A♯=B♭)", name: "Whole tone on C (3)", rootL: "C", pedals: { C:0,D:0,E:0,F:1,G:1,A:1,B:-1 } },
+      { chip: "C♯ (1) (E♯=F)", name: "Whole tone on C♯ (1)", rootL: "C", pedals: { C:1,D:1,E:1,F:0,G:0,A:0,B:0 } },
+      { chip: "D♭ (1) (C♯=D♭)", name: "Whole tone on D♭ (1)", rootL: "D", pedals: { C:1,D:-1,E:-1,F:0,G:0,A:0,B:0 } },
+    ],
   },
 ];
 // Three-level hierarchy: group → category → roots. Groups reference categories
@@ -993,7 +1145,56 @@ function loadJSON(key, fallback) {
   } catch { return fallback; }
 }
 function saveJSON(key, value) {
-  try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* storage full or blocked */ }
+  // Returns true on success so callers can surface quota/blocked failures
+  // instead of silently losing data on reload.
+  try { localStorage.setItem(key, JSON.stringify(value)); return true; }
+  catch { return false; /* storage full or blocked */ }
+}
+// Hard ceiling on distinct saveable (pedals, root) pairs: 3^7 pedal
+// configurations × 7 root letters. Nothing beyond this can be distinct,
+// so imports and the library itself are capped here.
+const MAX_LIBRARY = 2187 * 7; // 15,309
+const MAX_IMPORT_BYTES = 2 * 1024 * 1024; // a full 15,309-entry export is ~1.5–1.8 MB
+// Strip Unicode control and bidi-override characters from names. These render
+// invisibly or reverse text direction, letting a crafted file visually spoof
+// list entries. Applied on both import and save.
+function cleanName(s) {
+  return s.replace(/[\u0000-\u001F\u200B-\u200F\u202A-\u202E\u2066-\u2069]/g, "");
+}
+
+// ── Per-mode sound settings ─────────────────────────────────────────────────
+// Each mode keeps its own Sostenuto and Max voices. Units differ deliberately:
+// gliss measures Sostenuto in notes (ring scales with playback speed), while
+// scale/arpeggio and chord measure it in seconds — their previous behavior was
+// a hard-coded 3.4 s ring, which these defaults reproduce exactly.
+// Chord defaults Max voices to 47 (every string on the harp) so a full-board
+// chord is never cut short by voice-stealing.
+const SOUND_DEFAULTS = {
+  gliss: { tail: 24,  maxVoices: 24 }, // tail in notes
+  scale: { tail: 3.4, maxVoices: 24 }, // tail in seconds
+  chord: { tail: 3.4, maxVoices: 47 }, // tail in seconds
+};
+function initSoundSettings(saved) {
+  const clamp = (v, lo, hi, d) =>
+    (typeof v === "number" && Number.isFinite(v)) ? Math.min(hi, Math.max(lo, v)) : d;
+  const s = (saved && saved.sound) || {};
+  // Migrate pre-split settings: the old single tailNotes/maxVoices pair only
+  // ever affected gliss playback, so it seeds the gliss slot.
+  const legacy = {};
+  if (saved && typeof saved.tailNotes === "number") legacy.tail = saved.tailNotes;
+  if (saved && typeof saved.maxVoices === "number") legacy.maxVoices = saved.maxVoices;
+  const build = (m, tailLo, tailHi, mvHi, extra) => {
+    const src = { ...(extra || {}), ...(s[m] || {}) };
+    return {
+      tail: clamp(src.tail, tailLo, tailHi, SOUND_DEFAULTS[m].tail),
+      maxVoices: clamp(src.maxVoices, 4, mvHi, SOUND_DEFAULTS[m].maxVoices),
+    };
+  };
+  return {
+    gliss: build("gliss", 1, 60, 70, legacy),
+    scale: build("scale", 0.5, 8, 70),
+    chord: build("chord", 0.5, 8, 94),
+  };
 }
 // A custom config is portable as a compact object. Validate on import.
 function isValidPedals(p) {
@@ -1008,8 +1209,8 @@ function sanitizeImported(obj) {
   let malformed = 0;
   for (const it of arr) {
     if (!it || !isValidPedals(it.pedals)) { malformed++; continue; }
-    const name = typeof it.name === "string" && it.name.trim()
-      ? it.name.trim().slice(0, 60) : "Imported config";
+    const rawName = typeof it.name === "string" ? cleanName(it.name).trim() : "";
+    const name = rawName ? rawName.slice(0, 60) : "Imported config";
     const rootL = LETTERS.includes(it.rootL) ? it.rootL : null;
     out.push({ name, pedals: {
       C: it.pedals.C, D: it.pedals.D, E: it.pedals.E, F: it.pedals.F,
@@ -1017,6 +1218,63 @@ function sanitizeImported(obj) {
     }, rootL, user: true });
   }
   return { configs: out, malformed };
+}
+
+// Pure merge of imported configs into the saved library, O(incoming + library)
+// via Maps keyed on pedal-config+root (identity) and lowercased name — a full
+// 15,309-entry import stays fast instead of freezing the tab.
+// prev: existing user presets; incoming: sanitized entries (rootL already
+// resolved to a real letter); builtins: ALL_PRESETS_FLAT.
+// Returns { accepted, skippedNames, rejectedDups, cappedCount } where
+// rejectedDups entries are { name, matched } naming the library entry matched.
+function mergeImportedConfigs(prev, incoming, builtins) {
+  const cfgKey = (pedals, rootL) =>
+    LETTERS.map(L => pedals[L]).join("") + "|" + (rootL ?? "");
+  // config key → { display: first library name with this config, names: Set(lowercased) }
+  const configMap = new Map();
+  const nameSet = new Set(); // lowercased names across the whole library
+  const register = (entry) => {
+    const k = cfgKey(entry.pedals, entry.rootL ?? null);
+    const lc = entry.name.toLowerCase();
+    const slot = configMap.get(k);
+    if (slot) slot.names.add(lc);
+    else configMap.set(k, { display: entry.name, names: new Set([lc]) });
+    nameSet.add(lc);
+  };
+  for (const p of builtins) register({ name: p.name, pedals: p.pedals, rootL: p.rootL ?? null });
+  for (const p of prev) register(p);
+
+  const accepted = [];
+  const skippedNames = [];
+  const rejectedDups = [];
+  let userCount = prev.length;
+  let cappedCount = 0;
+
+  for (const inc of incoming) {
+    const slot = configMap.get(cfgKey(inc.pedals, inc.rootL ?? null));
+    if (slot) {
+      if (slot.names.has(inc.name.toLowerCase())) skippedNames.push(inc.name); // true duplicate
+      else rejectedDups.push({ name: inc.name, matched: slot.display });       // same config, new name
+      continue;
+    }
+    if (userCount >= MAX_LIBRARY) { cappedCount++; continue; }
+    // Distinct config; suffix the name if taken, truncating the base first so
+    // base + suffix stays ≤ 60 (truncating after suffixing risks re-collision).
+    let name = inc.name;
+    if (nameSet.has(name.toLowerCase())) {
+      let n = 1;
+      do {
+        const suf = ` ${n}`;
+        name = inc.name.slice(0, 60 - suf.length) + suf;
+        n++;
+      } while (nameSet.has(name.toLowerCase()));
+    }
+    const entry = { name, pedals: { ...inc.pedals }, rootL: inc.rootL ?? null, user: true };
+    accepted.push(entry);
+    register(entry);
+    userCount++;
+  }
+  return { accepted, skippedNames, rejectedDups, cappedCount };
 }
 
 // ─── SAMPLED HARP VOICE ─────────────────────────────────────────────────────
@@ -1107,6 +1365,35 @@ export default function HarpGliss() {
   const [octaveCount, setOctaveCount] = useState(1);
   const [glissStart, setGlissStart] = useState(IDX["5C"]);
   const [glissEnd, setGlissEnd] = useState(IDX["2C"]);
+  // Chord mode: which strings are selected (indices into STRINGS), empty by default.
+  const [chordSel, setChordSel] = useState(() => new Set());
+  const [breakChord, setBreakChord] = useState(false); // off = block chord (all at once)
+  const [enforce8, setEnforce8] = useState(false);     // cap selection at 8 notes (two hands)
+  const [handSpanOn, setHandSpanOn] = useState(false); // per-hand span rule (needs enforce8)
+  const [handSpan, setHandSpan] = useState(10);        // max strings apart within one hand (8–15)
+  const [handSpanField, setHandSpanField] = useState("10");
+  const [chordSpeed, setChordSpeed] = useState(15);    // broken-chord notes per second
+  const [chordSpeedField, setChordSpeedField] = useState("15");
+  // "Both" direction, per mode: continuous ping-pong (ends not repeated, no pause)
+  // vs a full out-and-back pass with a 1 s pause between loops. Defaults preserve
+  // each mode's original behaviour.
+  const [scaleContinuous, setScaleContinuous] = useState(false);
+  const [glissContinuous, setGlissContinuous] = useState(true);
+  const [chordContinuous, setChordContinuous] = useState(false);
+  // Loop, per mode: on = repeat with a settable gap between passes (the previous
+  // fixed behaviour, 1 s scale/gliss, 4 s chord); off = play the sequence once
+  // and stop. When Continuous is Yes (Both direction), a checked Loop plays
+  // seamlessly and the interval is ignored; an unchecked Loop still plays a
+  // single out-and-back pass then stops.
+  const [scaleLoop, setScaleLoop] = useState(true);
+  const [glissLoop, setGlissLoop] = useState(true);
+  const [chordLoop, setChordLoop] = useState(true);
+  const [scaleLoopSec, setScaleLoopSec] = useState(1);  // gap between passes (1–20 s)
+  const [glissLoopSec, setGlissLoopSec] = useState(1);
+  const [chordLoopSec, setChordLoopSec] = useState(4);
+  const [scaleLoopSecField, setScaleLoopSecField] = useState("1");
+  const [glissLoopSecField, setGlissLoopSecField] = useState("1");
+  const [chordLoopSecField, setChordLoopSecField] = useState("4");
   const [speed, setSpeed] = useState(15);
   const [scaleSpeed, setScaleSpeed] = useState(2); // scale/arpeggio notes per second
   const [speedField, setSpeedField] = useState("15");
@@ -1146,6 +1433,15 @@ export default function HarpGliss() {
   const [resetAllArmed, setResetAllArmed] = useState(false);
   const resetArmTimer = useRef(null);
   const [importMsg, setImportMsg] = useState("");
+  const importMsgTimer = useRef(null);
+  // Show an import message; clean-import messages fade after 7s, anything
+  // that names skipped/rejected/malformed entries stays until dismissed.
+  function showImportMsg(msg, autoFade) {
+    if (importMsgTimer.current) { clearTimeout(importMsgTimer.current); importMsgTimer.current = null; }
+    setImportMsg(msg);
+    if (autoFade && msg) importMsgTimer.current = setTimeout(() => setImportMsg(""), 7000);
+  }
+  const [storageWarn, setStorageWarn] = useState(""); // localStorage quota/blocked warning
   const fileInputRef = useRef(null);
   const [pendingOverwrite, setPendingOverwrite] = useState(null); // name awaiting overwrite confirm
   const [builtinNameClash, setBuiltinNameClash] = useState(false); // typed name matches a built-in preset
@@ -1165,17 +1461,31 @@ export default function HarpGliss() {
       : [true, true, true, true, true, true, true, true];
   });
   const [showTuner, setShowTuner] = useState(false);
-  const [tailNotes, setTailNotes] = useState(_savedSettings.tailNotes ?? 24);
-  const [maxVoices, setMaxVoices] = useState(_savedSettings.maxVoices ?? 24);
+  // Per-mode sound settings (Sostenuto + Max voices), see SOUND_DEFAULTS.
+  const [soundSettings, setSoundSettings] = useState(() => initSoundSettings(_savedSettings));
+  const setSound = (patch) =>
+    setSoundSettings(s => ({ ...s, [mode]: { ...s[mode], ...patch } }));
   const [rootSnap, setRootSnap] = useState(_savedSettings.rootSnap ?? true);
   const [darkMode, setDarkMode] = useState(() => { try { return localStorage.getItem(LS_DARK) === "1"; } catch { return false; } });
-  const tailNotesRef = useRef(tailNotes);
-  const maxVoicesRef = useRef(maxVoices);
-  useEffect(() => { tailNotesRef.current = tailNotes; }, [tailNotes]);
-  useEffect(() => { maxVoicesRef.current = maxVoices; }, [maxVoices]);
-  // Persist to the user's device
-  useEffect(() => { saveJSON(LS_PRESETS, userPresets); }, [userPresets]);
-  useEffect(() => { saveJSON(LS_SETTINGS, { tailNotes, maxVoices, rootSnap, arpMask }); }, [tailNotes, maxVoices, rootSnap, arpMask]);
+  // Refs mirror the *current mode's* values so scheduled notes read live settings.
+  const tailRef = useRef(SOUND_DEFAULTS.gliss.tail);
+  const maxVoicesRef = useRef(SOUND_DEFAULTS.gliss.maxVoices);
+  useEffect(() => {
+    tailRef.current = soundSettings[mode].tail;
+    maxVoicesRef.current = soundSettings[mode].maxVoices;
+  }, [soundSettings, mode]);
+  // Persist to the user's device. localStorage is shared per-origin (~5 MB
+  // across all harpbelle.github.io projects), so a full quota means saves
+  // look fine on screen but vanish on reload — warn instead of losing data.
+  const STORAGE_WARN_TEXT = "Couldn't save to this browser's storage (it may be full or blocked). Your configurations are safe on screen, but recent changes may be lost on reload. Export them to a file to be safe.";
+  useEffect(() => {
+    const ok = saveJSON(LS_PRESETS, userPresets);
+    setStorageWarn(ok ? "" : STORAGE_WARN_TEXT);
+  }, [userPresets]);
+  useEffect(() => {
+    const ok = saveJSON(LS_SETTINGS, { sound: soundSettings, rootSnap, arpMask });
+    if (!ok) setStorageWarn(STORAGE_WARN_TEXT);
+  }, [soundSettings, rootSnap, arpMask]);
   useEffect(() => { try { localStorage.setItem(LS_DARK, darkMode ? "1" : "0"); } catch {} }, [darkMode]);
   useEffect(() => { document.body.style.backgroundColor = darkMode ? "#1a1a2e" : "#fafafa"; }, [darkMode]);
 
@@ -1193,6 +1503,11 @@ export default function HarpGliss() {
   const arpMaskRef = useRef(arpMask);
   const glissStartRef = useRef(glissStart);
   const glissEndRef = useRef(glissEnd);
+  const chordSelRef = useRef(chordSel);
+  const chordSpeedRef = useRef(chordSpeed);
+  const scaleLoopSecRef = useRef(scaleLoopSec);
+  const glissLoopSecRef = useRef(glissLoopSec);
+  const chordLoopSecRef = useRef(chordLoopSec);
   const playRef = useRef({ on: false, timer: null });
   const cycleDirRef = useRef({});
   const dragRef = useRef({}); // active pedal drags keyed by pointerId (up to two fingers)
@@ -1209,6 +1524,15 @@ export default function HarpGliss() {
   useEffect(() => { arpMaskRef.current = arpMask; }, [arpMask]);
   useEffect(() => { glissStartRef.current = glissStart; }, [glissStart]);
   useEffect(() => { glissEndRef.current = glissEnd; }, [glissEnd]);
+  useEffect(() => { chordSelRef.current = chordSel; }, [chordSel]);
+  useEffect(() => { chordSpeedRef.current = chordSpeed; }, [chordSpeed]);
+  useEffect(() => { scaleLoopSecRef.current = scaleLoopSec; }, [scaleLoopSec]);
+  useEffect(() => { glissLoopSecRef.current = glissLoopSec; }, [glissLoopSec]);
+  useEffect(() => { chordLoopSecRef.current = chordLoopSec; }, [chordLoopSec]);
+  useEffect(() => { setScaleLoopSecField(String(scaleLoopSec)); }, [scaleLoopSec]);
+  useEffect(() => { setGlissLoopSecField(String(glissLoopSec)); }, [glissLoopSec]);
+  useEffect(() => { setChordLoopSecField(String(chordLoopSec)); }, [chordLoopSec]);
+  useEffect(() => { setChordSpeedField(String(chordSpeed)); }, [chordSpeed]);
   useEffect(() => { setSpeedField(String(speed)); }, [speed]);
   useEffect(() => { setScaleSpeedField(String(scaleSpeed)); }, [scaleSpeed]);
   useEffect(() => { tuningRef.current = tuning; }, [tuning]);
@@ -1344,14 +1668,14 @@ export default function HarpGliss() {
     S.loading = false;
   }
 
-  function soundString(idx, when) {
+  function soundString(idx, when, volMul = 1) {
     const { ctx, dest } = getAudio();
     ensureSamples(ctx);
     const s = STRINGS[idx];
     const acc = pedalsRef.current[s.letter];
     const targetMidi = s.midi + acc;
     const isGliss = mode === "gliss";
-    const vol = isGliss ? Math.min(0.55, 1.6 / Math.sqrt(speedRef.current)) : 0.5;
+    const vol = (isGliss ? Math.min(0.55, 1.6 / Math.sqrt(speedRef.current)) : 0.5) * volMul;
     const t = when != null ? when : ctx.currentTime; // audio-clock start time for this note
 
     const bufs = samplesRef.current.buffers;
@@ -1368,12 +1692,13 @@ export default function HarpGliss() {
       const g = ctx.createGain();
       g.gain.setValueAtTime(0, t);
       g.gain.linearRampToValueAtTime(vol, t + 0.012); // declick + soften attack
-      // Sostenuto length, live-tunable via the sound panel. Scale mode rings full.
+      // Sostenuto length, live-tunable per mode via the sound panel.
+      // Gliss: measured in notes (scales with speed). Scale/chord: seconds.
       const noteGap = 1 / speedRef.current;
       const tail = isGliss
-        ? Math.max(0.18, noteGap * tailNotesRef.current)
-        : 3.4;
-      const fade = isGliss ? Math.min(0.4, tail * 0.45) : 0.4;
+        ? Math.max(0.18, noteGap * tailRef.current)
+        : Math.max(0.18, tailRef.current);
+      const fade = Math.min(0.4, tail * 0.45);
       g.gain.setValueAtTime(vol, t + tail - fade);
       g.gain.exponentialRampToValueAtTime(0.0001, t + tail);
       src.connect(g); g.connect(dest);
@@ -1432,9 +1757,18 @@ export default function HarpGliss() {
     }
     await ensureSamples(ctx); // instant if already pre-warmed on first interaction
     if (!playRef.current.on) return;
-    const PAUSE = 1000;       // ms gap inserted between loop repeats
+    const PAUSE = 1000;      // ms wait while the selection/sequence is empty (poll interval)
     const LOOKAHEAD = 0.15;  // queue notes up to this far ahead on the audio clock (s)
     const TICK = 25;        // how often the scheduler wakes (ms)
+    const TAIL = 1;         // s after a one-shot pass's last note before playback stops
+    // Loop settings for the current mode. loopOn is captured at Play (toggling
+    // the checkbox stops playback anyway); the interval is read live from refs
+    // at each loop boundary, like speed.
+    const loopOn = mode === "chord" ? chordLoop : mode === "scale" ? scaleLoop : glissLoop;
+    const loopGap = () =>
+      mode === "chord" ? chordLoopSecRef.current :
+      mode === "scale" ? scaleLoopSecRef.current :
+      glissLoopSecRef.current;
 
     // pullEvent(): advance the playback state by one note and return { idx, gap }
     // — idx is the string to sound (null means a silent wait) and gap is the
@@ -1444,13 +1778,108 @@ export default function HarpGliss() {
     // effect at the next boundary, exactly as the old loop did.
     let pullEvent;
 
-    if (mode === "scale") {
-      const buildScale = () => buildScaleSequence(
-        scaleStartRef.current, octaveCountRef.current, arpMaskRef.current,
-        directionRef.current, bothStartRef.current);
+    if (mode === "chord") {
+      const sortedSel = () => [...chordSelRef.current].sort((a, b) => a - b);
+      if (!breakChord) {
+        // Block chord: every selected string sounds at once (gap 0 between
+        // scheduled notes), then the loop interval before the chord repeats
+        // (or, with Loop off, once and stop). Direction and speed settings are
+        // ignored. Per-note volume scales by 1/√n so large chords don't
+        // overload; selection changes apply at the next repeat.
+        let notes = sortedSel();
+        let i = 0;
+        let ended = false;
+        pullEvent = () => {
+          if (ended) return { done: true };
+          if (notes.length === 0) { notes = sortedSel(); return { idx: null, gap: PAUSE / 1000 }; }
+          const volMul = Math.min(1, 1.7 / Math.sqrt(notes.length));
+          const idx = notes[i]; i++;
+          if (i >= notes.length) {
+            if (!loopOn) { ended = true; return { idx, gap: TAIL, volMul }; }
+            notes = sortedSel(); i = 0;
+            return { idx, gap: loopGap(), volMul };
+          }
+          return { idx, gap: 0, volMul };
+        };
+      } else if (direction === "both" && chordContinuous && chordLoop) {
+        // Broken chord, continuous ping-pong over the selection (gliss style):
+        // no pause, turnaround notes not repeated. Selection changes apply at
+        // each turnaround. (With Loop off, the sequenced branch below plays a
+        // single out-and-back pass instead — Continuous only matters when
+        // looping.)
+        let sel = sortedSel();
+        let dir = bothStartRef.current === "down" ? -1 : 1;
+        let pos = dir === 1 ? 0 : Math.max(0, sel.length - 1);
+        let first = true;
+        pullEvent = () => {
+          if (sel.length === 0) {
+            sel = sortedSel();
+            dir = bothStartRef.current === "down" ? -1 : 1;
+            pos = dir === 1 ? 0 : Math.max(0, sel.length - 1);
+            first = true;
+            return { idx: null, gap: PAUSE / 1000 };
+          }
+          if (first) { first = false; return { idx: sel[pos], gap: 1 / chordSpeedRef.current }; }
+          let next = pos + dir;
+          if (next >= sel.length || next < 0) {
+            sel = sortedSel(); // refresh selection at the turnaround
+            if (sel.length === 0) return { idx: null, gap: PAUSE / 1000 };
+            pos = Math.max(0, Math.min(pos, sel.length - 1));
+            dir = -dir;
+            next = Math.max(0, Math.min(pos + dir, sel.length - 1));
+          }
+          pos = next;
+          return { idx: sel[pos], gap: 1 / chordSpeedRef.current };
+        };
+      } else {
+        // Broken chord, sequenced pass (asc / desc / both scale-style) with the
+        // loop interval between passes, or a single pass with Loop off.
+        const buildChord = () => {
+          const sel = sortedSel();
+          const d = directionRef.current;
+          if (d === "asc") return sel;
+          if (d === "desc") return [...sel].reverse();
+          const firstPass = bothStartRef.current === "down" ? [...sel].reverse() : sel;
+          return firstPass.length > 1
+            ? [...firstPass, ...firstPass.slice(0, -1).reverse()]
+            : firstPass;
+        };
+        let seq = buildChord();
+        let i = 0;
+        let ended = false;
+        pullEvent = () => {
+          if (ended) return { done: true };
+          if (i >= seq.length) {
+            seq = buildChord();
+            i = 0;
+            if (seq.length === 0) return { idx: null, gap: PAUSE / 1000 };
+          }
+          const idx = seq[i]; i++;
+          let gap = 1 / chordSpeedRef.current;
+          if (i >= seq.length) {
+            if (!loopOn) { ended = true; gap += TAIL; }
+            else { seq = buildChord(); i = 0; gap += loopGap(); }
+          }
+          return { idx, gap };
+        };
+      }
+    } else if (mode === "scale") {
+      // Continuous "both": loop seamlessly with neither end repeated — drop the
+      // pass's final note (the repeated bottom) and skip the inter-loop pause.
+      // With Loop off, a single full pass plays (final note included) and stops,
+      // so Continuous is moot.
+      const cont = direction === "both" && scaleContinuous && scaleLoop;
+      const buildScale = () => {
+        const seq = buildScaleSequence(
+          scaleStartRef.current, octaveCountRef.current, arpMaskRef.current,
+          directionRef.current, bothStartRef.current);
+        return (cont && seq.length > 1) ? seq.slice(0, -1) : seq;
+      };
       let seq = buildScale();
       let i = 0;
+      let ended = false;
       pullEvent = () => {
+        if (ended) return { done: true };
         if (i >= seq.length) {
           seq = buildScale();
           i = 0;
@@ -1459,9 +1888,38 @@ export default function HarpGliss() {
         const idx = seq[i]; i++;
         let gap = 1 / tempoRef.current;
         if (i >= seq.length) { // just emitted the last note → pause before the next loop
-          seq = buildScale();
+          if (!loopOn) { ended = true; gap += TAIL; }
+          else {
+            seq = buildScale();
+            i = 0;
+            if (!cont) gap += loopGap();
+          }
+        }
+        return { idx, gap };
+      };
+    } else if (direction === "both" && (!glissContinuous || !glissLoop)) {
+      // Gliss "both", non-continuous (or Loop off): a full out-and-back pass
+      // (scale style, ending back on the start note), then the loop interval
+      // before the next pass — or, with Loop off, a single pass and stop.
+      const buildBoth = () => {
+        const run = rng(glissStartRef.current, glissEndRef.current);
+        return run.length > 1 ? [...run, ...run.slice(0, -1).reverse()] : run;
+      };
+      let seq = buildBoth();
+      let i = 0;
+      let ended = false;
+      pullEvent = () => {
+        if (ended) return { done: true };
+        if (i >= seq.length) {
+          seq = buildBoth();
           i = 0;
-          gap += PAUSE / 1000;
+          if (seq.length === 0) return { idx: null, gap: PAUSE / 1000 };
+        }
+        const idx = seq[i]; i++;
+        let gap = 1 / speedRef.current;
+        if (i >= seq.length) {
+          if (!loopOn) { ended = true; gap += TAIL; }
+          else { seq = buildBoth(); i = 0; gap += loopGap(); }
         }
         return { idx, gap };
       };
@@ -1489,7 +1947,9 @@ export default function HarpGliss() {
     } else {
       let seq = buildGlissSequence(glissStartRef.current, glissEndRef.current);
       let i = 0;
+      let ended = false;
       pullEvent = () => {
+        if (ended) return { done: true };
         if (i >= seq.length) {
           seq = buildGlissSequence(glissStartRef.current, glissEndRef.current);
           i = 0;
@@ -1498,9 +1958,12 @@ export default function HarpGliss() {
         const idx = seq[i]; i++;
         let gap = 1 / speedRef.current;
         if (i >= seq.length) {
-          seq = buildGlissSequence(glissStartRef.current, glissEndRef.current);
-          i = 0;
-          gap += PAUSE / 1000;
+          if (!loopOn) { ended = true; gap += TAIL; }
+          else {
+            seq = buildGlissSequence(glissStartRef.current, glissEndRef.current);
+            i = 0;
+            gap += loopGap();
+          }
         }
         return { idx, gap };
       };
@@ -1517,7 +1980,16 @@ export default function HarpGliss() {
       if (!playRef.current.on) return;
       while (nextNoteTime < ctx.currentTime + LOOKAHEAD) {
         const ev = pullEvent();
-        if (ev.idx != null) soundString(ev.idx, nextNoteTime);
+        if (ev.done) {
+          // One-shot pass complete (Loop off): stop once the last note (plus
+          // its tail) has actually sounded, so the final highlight still shows.
+          const gen = playRef.current.gen;
+          playRef.current.timer = setTimeout(() => {
+            if (playRef.current.on && playRef.current.gen === gen) stop();
+          }, Math.max(0, (nextNoteTime - ctx.currentTime) * 1000));
+          return;
+        }
+        if (ev.idx != null) soundString(ev.idx, nextNoteTime, ev.volMul ?? 1);
         nextNoteTime += ev.gap;
       }
       playRef.current.timer = setTimeout(scheduleAhead, TICK);
@@ -1567,9 +2039,30 @@ export default function HarpGliss() {
     direction === "both" ? rng(0, 46).filter(i => i !== glissStart) :
     rng(glissStart + 1, 46);
 
-  const pretuneSelected = mode === "scale"
-    ? scaleStart <= 1
-    : (glissStart <= 1 || glissEnd <= 1);
+  const pretuneSelected =
+    mode === "scale" ? scaleStart <= 1 :
+    mode === "chord" ? (chordSel.has(IDX["7C"]) || chordSel.has(IDX["7D"])) :
+    (glissStart <= 1 || glissEnd <= 1);
+
+  // ── Chord grid selection ──
+  // A note can be added only if the selection stays legal under the enforced
+  // limits: ≤8 notes, and (when the hand-span rule is on) playable by two
+  // ≤4-note hands each within the span. Deselection is always allowed.
+  const chordAddOK = (sel, i) => {
+    if (!enforce8) return true;
+    if (sel.size >= 8) return false;
+    if (!handSpanOn) return true;
+    return handsFeasible([...sel, i].sort((a, b) => a - b), handSpan);
+  };
+  function toggleChordNote(i) {
+    setChordSel(prev => {
+      const next = new Set(prev);
+      if (next.has(i)) { next.delete(i); return next; }
+      if (!chordAddOK(prev, i)) return prev;
+      next.add(i);
+      return next;
+    });
+  }
 
   // ── Tuning ──
   function commitTuning() {
@@ -1585,6 +2078,31 @@ export default function HarpGliss() {
     v = Math.max(1, Math.min(40, v));
     setSpeed(v);
     setSpeedField(String(v));
+  }
+  function commitHandSpan() {
+    let v = parseInt(handSpanField, 10);
+    if (isNaN(v)) v = handSpan;
+    v = Math.max(8, Math.min(15, v));
+    setHandSpan(v);
+    setHandSpanField(String(v));
+  }
+  function commitLoopSec() {
+    const [field, sec, setSec, setField] =
+      mode === "scale" ? [scaleLoopSecField, scaleLoopSec, setScaleLoopSec, setScaleLoopSecField] :
+      mode === "chord" ? [chordLoopSecField, chordLoopSec, setChordLoopSec, setChordLoopSecField] :
+      [glissLoopSecField, glissLoopSec, setGlissLoopSec, setGlissLoopSecField];
+    let v = parseInt(field, 10);
+    if (isNaN(v)) v = sec;
+    v = Math.max(1, Math.min(20, v));
+    setSec(v);
+    setField(String(v));
+  }
+  function commitChordSpeed() {
+    let v = parseInt(chordSpeedField, 10);
+    if (isNaN(v)) v = chordSpeed;
+    v = Math.max(1, Math.min(40, v));
+    setChordSpeed(v);
+    setChordSpeedField(String(v));
   }
   function commitScaleSpeed() {
     let v = parseInt(scaleSpeedField, 10);
@@ -1608,10 +2126,28 @@ export default function HarpGliss() {
     setGlissStart(IDX["5C"]);
     setGlissEnd(IDX["2C"]);
     setSpeed(15);
+    setChordSel(new Set());
+    setBreakChord(false);
+    setEnforce8(false);
+    setHandSpanOn(false);
+    setHandSpan(10);
+    setHandSpanField("10");
+    setChordSpeed(15);
+    setScaleContinuous(false);
+    setGlissContinuous(true);
+    setChordContinuous(false);
+    setScaleLoop(true);
+    setGlissLoop(true);
+    setChordLoop(true);
+    setScaleLoopSec(1);
+    setGlissLoopSec(1);
+    setChordLoopSec(4);
+    setScaleLoopSecField("1");
+    setGlissLoopSecField("1");
+    setChordLoopSecField("4");
     setTuning(440);
     setTuningField("440");
-    setTailNotes(24);
-    setMaxVoices(24);
+    setSoundSettings(initSoundSettings(null));
     setRootSnap(true);
     setArpMask([true, true, true, true, true, true, true, true]);
     cycleDirRef.current = {};
@@ -1638,7 +2174,8 @@ export default function HarpGliss() {
   }
   function savePreset() {
     if (!saveName.trim() || exactMatches.length > 0) return;
-    const name = saveName.trim();
+    const name = cleanName(saveName).trim();
+    if (!name) return; // name was only control/invisible characters
     // Reject names that belong to a built-in preset, so custom configs never
     // collide with the library (and survive an export/re-import round-trip).
     if (ALL_PRESETS_FLAT.some(p => p.name.toLowerCase() === name.toLowerCase())) {
@@ -1665,7 +2202,7 @@ export default function HarpGliss() {
     setPendingOverwrite(null);
   }
   function renamePreset(index, newName) {
-    const trimmed = newName.trim();
+    const trimmed = cleanName(newName).trim();
     if (!trimmed) return false;
     // Disallow renaming to a built-in preset name or another saved config's name.
     if (ALL_PRESETS_FLAT.some(p => p.name.toLowerCase() === trimmed.toLowerCase())) return false;
@@ -1681,9 +2218,10 @@ export default function HarpGliss() {
   // ── Import / Export ──
   // Export a chosen subset of saved configs as a small JSON file.
   function exportSelected(indices) {
-    const chosen = indices.length
-      ? indices.map(i => userPresets[i]).filter(Boolean)
-      : userPresets;
+    // An empty selection exports nothing — never an implicit "export all".
+    // Callers wanting everything must pass all indices explicitly.
+    if (indices.length === 0) return;
+    const chosen = indices.map(i => userPresets[i]).filter(Boolean);
     if (chosen.length === 0) return;
     const payload = chosen.map(p => ({ name: p.name, pedals: p.pedals, rootL: p.rootL ?? null }));
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
@@ -1697,82 +2235,73 @@ export default function HarpGliss() {
     URL.revokeObjectURL(url);
   }
   function importConfigs(file) {
+    // Guard 1: reject oversized files before reading. A full 15,309-entry
+    // export is ~1.5-1.8 MB, so anything over 2 MB can't be a legitimate export.
+    if (file.size > MAX_IMPORT_BYTES) {
+      showImportMsg(`That file is too large to be a Glissie export (over ${Math.round(MAX_IMPORT_BYTES / (1024 * 1024))} MB).`, false);
+      return;
+    }
     const reader = new FileReader();
+    reader.onerror = () => {
+      // Unreadable file (locked, deleted mid-read, permission issue): say so
+      // instead of silently doing nothing.
+      showImportMsg("That file couldn't be read. It may be locked, deleted, or inaccessible; please try again.", false);
+    };
     reader.onload = () => {
       try {
         const parsed = JSON.parse(String(reader.result));
-        const { configs: incoming, malformed } = sanitizeImported(parsed);
-        if (incoming.length === 0 && malformed === 0) { setImportMsg("No valid configurations found in that file."); return; }
-        if (incoming.length === 0) {
-          setImportMsg(`No valid configurations found; ${malformed} entr${malformed === 1 ? "y was" : "ies were"} malformed and skipped.`);
+        // Guard 2: reject impossible entry counts before classifying anything.
+        const rawArr = Array.isArray(parsed) ? parsed : [parsed];
+        if (rawArr.length > MAX_LIBRARY) {
+          showImportMsg(`That file has ${rawArr.length.toLocaleString()} entries, but only ${MAX_LIBRARY.toLocaleString()} distinct configurations can exist. Import cancelled.`, false);
+          return;
+        }
+        const { configs: sanitized, malformed } = sanitizeImported(parsed);
+        if (sanitized.length === 0 && malformed === 0) { showImportMsg("No valid configurations found in that file.", false); return; }
+        if (sanitized.length === 0) {
+          showImportMsg(`No valid configurations found; ${malformed} entr${malformed === 1 ? "y was" : "ies were"} malformed and skipped.`, false);
           return;
         }
 
-        setUserPresets(prev => {
-          const accepted = [];
-          // The library to check against: built-in presets + existing saved +
-          // configs accepted so far in this batch. Each has {name, pedals, rootL}.
-          const library = [
-            ...ALL_PRESETS_FLAT.map(p => ({ name: p.name, pedals: p.pedals, rootL: p.rootL ?? null })),
-            ...prev,
-          ];
-          const eqName = (a, b) => a.toLowerCase() === b.toLowerCase();
-          const eqRoot = (a, b) => (a ?? null) === (b ?? null);
+        // Resolve null rootL at import time (not apply time), baking in the
+        // current start-note letter, so the entry never sits in the library
+        // rootless where the duplicate check would treat it as always-distinct.
+        // savePreset always writes a letter; null can only come from
+        // hand-edited files, so nothing legitimate is lost.
+        const startL = STRINGS[mode === "gliss" ? glissStart : scaleStart].letter;
+        const incoming = sanitized.map(c => c.rootL == null ? { ...c, rootL: startL } : c);
 
-          let added = 0, skipped = 0;
-          const rejDup = [];   // case 2: same pedals+root, different name
+        const { accepted, skippedNames, rejectedDups, cappedCount } =
+          mergeImportedConfigs(userPresets, incoming, ALL_PRESETS_FLAT);
 
-          for (const inc of incoming) {
-            // Classify against the whole library, taking the strongest verdict.
-            // Precedence: skip > reject > rename > accept.
-            const rank = { skip:4, rejectDup:3, rename:2, accept:1 };
-            let verdict = "accept";
-            for (const ex of library) {
-              const sP = sameConfig(ex.pedals, inc.pedals);
-              const sR = eqRoot(ex.rootL, inc.rootL);
-              const sN = eqName(ex.name, inc.name);
-              let v;
-              if (sP && sR && sN) v = "skip";             // 1: true duplicate
-              else if (sP && sR && !sN) v = "rejectDup";  // 2: same config, new name
-              else if (sP && !sR && sN) v = "rename";     // 3: diff root, same name → suffix
-              else if (!sP && sN) v = "rename";           // 5,7: diff pedals, same name
-              else v = "accept";                          // 4,6,8: distinct
-              if (rank[v] > rank[verdict]) verdict = v;
-            }
+        // List at most 5 names, then "\u2026and N more."
+        const listNames = (arr, fmt = x => x) => {
+          const shown = arr.slice(0, 5).map(fmt);
+          const more = arr.length - shown.length;
+          return shown.join(", ") + (more > 0 ? `, \u2026and ${more} more` : "");
+        };
+        const parts = [];
+        if (accepted.length) parts.push(`Imported ${accepted.length} configuration${accepted.length === 1 ? "" : "s"}.`);
+        if (skippedNames.length) parts.push(
+          `Skipped ${skippedNames.length} already saved (${listNames(skippedNames)}).`
+        );
+        if (rejectedDups.length) parts.push(
+          `Rejected ${rejectedDups.length} matching an existing configuration under a different name (${listNames(rejectedDups, d => `${d.name} matches ${d.matched}`)}).`
+        );
+        if (malformed) parts.push(
+          `${malformed} entr${malformed === 1 ? "y was" : "ies were"} malformed and skipped; fix and re-import to add ${malformed === 1 ? "it" : "them"}.`
+        );
+        if (cappedCount) parts.push(
+          `${cappedCount} not added: the library is at its ${MAX_LIBRARY.toLocaleString()}-configuration limit.`
+        );
+        // Clean imports fade after 7 seconds; anything with skips, rejections,
+        // malformed entries, or cap hits stays until dismissed.
+        const sticky = skippedNames.length > 0 || rejectedDups.length > 0 || malformed > 0 || cappedCount > 0;
+        showImportMsg(parts.join(" ") || "Nothing to import.", !sticky);
 
-            if (verdict === "skip") { skipped++; continue; }
-            if (verdict === "rejectDup") { rejDup.push(inc.name); continue; }
-
-            // rename (silent suffix) or accept
-            let name = inc.name;
-            const taken = (nm) => library.some(ex => eqName(ex.name, nm));
-            if (verdict === "rename" || taken(name)) {
-              if (taken(name)) {
-                let n = 1;
-                while (taken(`${inc.name} ${n}`)) n++;
-                name = `${inc.name} ${n}`;
-              }
-            }
-            const entry = { name, pedals: { ...inc.pedals }, rootL: inc.rootL ?? null, user: true };
-            accepted.push(entry);
-            library.push(entry);
-            added++;
-          }
-
-          const parts = [];
-          if (added) parts.push(`Imported ${added} configuration${added === 1 ? "" : "s"}.`);
-          if (skipped) parts.push(`Skipped ${skipped} already saved.`);
-          if (rejDup.length) parts.push(
-            `Rejected ${rejDup.length} matching an existing configuration under a different name (${rejDup.join(", ")}).`
-          );
-          if (malformed) parts.push(
-            `${malformed} entr${malformed === 1 ? "y was" : "ies were"} malformed and skipped; fix and re-import to add ${malformed === 1 ? "it" : "them"}.`
-          );
-          setImportMsg(parts.join(" ") || "Nothing to import.");
-          return [...prev, ...accepted];
-        });
+        if (accepted.length) setUserPresets(prev => [...prev, ...accepted]);
       } catch {
-        setImportMsg("That file couldn't be read as Glissie configurations.");
+        showImportMsg("That file couldn't be read as Glissie configurations.", false);
       }
     };
     reader.readAsText(file);
@@ -1938,11 +2467,92 @@ export default function HarpGliss() {
   // Compact variant for the Presets…Reset-all toolbar so it fits one line on desktop; mobile keeps roomy padding.
   const btnRow = (active) => ({ ...btn(active), padding: wide ? "5px 9px" : "5px 14px" });
   const seg = (active) => ({
-    padding:"6px 14px", border:"none", whiteSpace:"nowrap",
+    padding: wide ? "6px 14px" : "6px 8px", border:"none", whiteSpace:"nowrap",
     background: active ? t.accent3 : t.card,
     color: active ? (dk?"#1a1a2e":"white") : t.text,
     cursor:"pointer", fontSize:13, fontWeight: active ? 600 : 400,
   });
+
+  // ── Chord grid: one colour per octave (legend shown above the grid) ──
+  const OCT_COLORS = dk
+    ? { 7:"#a06ad0", 6:"#6a8ad8", 5:"#4aacac", 4:"#5ab55a", 3:"#b0a848", 2:"#d09050", 1:"#d07070", 0:"#b08868" }
+    : { 7:"#7a3aa5", 6:"#3a5aa5", 5:"#1a7a7a", 4:"#3a7a3a", 3:"#8a7a1a", 2:"#b06a1a", 1:"#a53a3a", 0:"#7a4a2a" };
+
+  // ── "Continuous" option for the Both direction, one state per mode ──
+  const continuousValue =
+    mode === "scale" ? scaleContinuous :
+    mode === "chord" ? chordContinuous :
+    glissContinuous;
+  const setContinuousValue = (v) => {
+    if (mode === "scale") setScaleContinuous(v);
+    else if (mode === "chord") setChordContinuous(v);
+    else setGlissContinuous(v);
+    stop();
+  };
+  // ── "Loop" option, one state + interval per mode ──
+  const loopValue =
+    mode === "scale" ? scaleLoop :
+    mode === "chord" ? chordLoop :
+    glissLoop;
+  const setLoopValue = (v) => {
+    if (mode === "scale") setScaleLoop(v);
+    else if (mode === "chord") setChordLoop(v);
+    else setGlissLoop(v);
+    stop();
+  };
+  const loopSecField =
+    mode === "scale" ? scaleLoopSecField :
+    mode === "chord" ? chordLoopSecField :
+    glissLoopSecField;
+  const setLoopSecField =
+    mode === "scale" ? setScaleLoopSecField :
+    mode === "chord" ? setChordLoopSecField :
+    setGlissLoopSecField;
+  // With Continuous = Yes (Both direction) a checked Loop repeats seamlessly,
+  // so the interval is ignored — dim it. Block chords ignore direction (and
+  // therefore Continuous) entirely, hence the breakChord condition.
+  const continuousApplies = direction === "both" && (mode !== "chord" || breakChord);
+  const intervalOn = loopValue && !(continuousApplies && continuousValue);
+  const loopRow = () => (
+    // The interval input is always rendered (dimmed when unused) so the row
+    // height never changes; minHeight matches the input so toggling other
+    // rows around it doesn't reflow either.
+    <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10, minHeight:28 }}>
+      <label style={{ display:"flex", gap:8, alignItems:"center", fontSize:12, color:t.text2, cursor:"pointer" }}>
+        <input type="checkbox" checked={loopValue}
+          onChange={e => setLoopValue(e.target.checked)} />
+        Loop
+      </label>
+      <label style={{ fontSize:12, color:t.text3, opacity: intervalOn ? 1 : 0.5 }}>every</label>
+      <input type="text" inputMode="numeric" value={loopSecField}
+        disabled={!intervalOn}
+        onChange={e => setLoopSecField(e.target.value.replace(/[^0-9]/g, ""))}
+        onBlur={commitLoopSec}
+        onKeyDown={e => e.key === "Enter" && e.currentTarget.blur()}
+        style={{ ...inputStyle, width:40, textAlign:"center", opacity: intervalOn ? 1 : 0.5 }}/>
+      <span style={{ fontSize:12, color:t.text3, opacity: intervalOn ? 1 : 0.5 }}>s</span>
+    </div>
+  );
+
+  const continuousRow = () => (
+    // With Loop unchecked, playback is a single pass and Continuous is moot —
+    // the whole row dims and the radios disable until Loop is re-ticked.
+    <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:10, flexWrap:"wrap", opacity: loopValue ? 1 : 0.5 }}>
+      <label style={{ fontSize:12, color:t.text3 }}>Continuous:</label>
+      <label style={{ display:"flex", gap:5, alignItems:"center", fontSize:12, color:t.text2, cursor: loopValue ? "pointer" : "default" }}>
+        <input type="radio" name="continuousBoth" checked={continuousValue}
+          disabled={!loopValue}
+          onChange={() => setContinuousValue(true)} />
+        Yes
+      </label>
+      <label style={{ display:"flex", gap:5, alignItems:"center", fontSize:12, color:t.text2, cursor: loopValue ? "pointer" : "default" }}>
+        <input type="radio" name="continuousBoth" checked={!continuousValue}
+          disabled={!loopValue}
+          onChange={() => setContinuousValue(false)} />
+        No
+      </label>
+    </div>
+  );
 
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1995,10 +2605,14 @@ export default function HarpGliss() {
           <strong>Live pedalling:</strong> Pedal changes apply immediately, even during playback.<br/><br/>
           <strong>Reset:</strong> Restores all settings (pedals, mode, direction, notes, speed, tuning) to their defaults, but keeps your saved configurations. <strong>Reset all</strong> does the same and also deletes your saved configurations; it asks for a second tap to confirm.<br/><br/>
           <strong>Enharmonic doublings:</strong> Some presets (pentatonics, whole tone) set two adjacent strings to the same pitch; e.g. B♯=C. This is how harpists achieve scales of fewer than seven notes in a glissando; the doubled notes reinforce the sound. A few root names (e.g. D♯ major pentatonic, G♭ blues minor) simply name the string the run starts on, where the configuration offers no theoretically cleaner enharmonic root.<br/><br/>
-          <strong>Out-of-order configurations:</strong> A glissando sweeps the strings in playing order, so its pitches should climb steadily. A few enharmonic spellings break this: a sharpened E♯ sounds above the following F♭, or a B♯ above the next C♭ at the octave change, so the run dips mid-sweep. The default for each scale always avoids this. Configurations that don't are still kept; the effect can be striking, but are listed last among a root's alternates and marked ⚠ with the pitch class that falls out of order, e.g. ⚠E♯.<br/><br/>
+          <strong>Out-of-order configurations:</strong> A glissando sweeps the strings in playing order, so its pitches should climb steadily. A few enharmonic spellings break this: a sharpened E♯ sounds above the following F♭, or a B♯ above the next C♭ at the octave change, so the run dips mid-sweep. The default for each scale always avoids this. Configurations that don't are still kept; the effect can be striking, but are listed last among a root's alternates and marked ⚠ with the pitch class that falls out of order, e.g. ⚠E♯ (or ⚠E♯,B♯ when both octave breaks invert).<br/><br/>
           <strong>7C and 7D:</strong> On a real concert grand these two strings are not connected to the pedal mechanism and must be pre-tuned by hand. In this app they follow the pedals for convenience.<br/><br/>
           <strong>Saving &amp; sharing:</strong> Saved configurations are stored on your own device and persist between visits; except if you choose "Reset all" or clear your browser data, which removes them. To save a copy on your local disk or to share with other users, use Export. Each appears under "My configurations," where you can rename (✎) or delete (🗑) it; saving a name you've already used asks whether to overwrite. <strong>Export</strong> lets you tick which configurations to download as a small file you can back up or send to another user; <strong>Import</strong> loads configurations from such a file. On import, identical configurations you already have are skipped, and one whose name you already use for a <em>different</em> setting is automatically renamed.<br/><br/>
-          <strong>Modes:</strong> <em>Scale / Arpeggio</em> plays a run from your start note. The eight buttons are the scale degrees (1–7 plus the octave, 1*): with all lit it's a full scale, and deselecting some makes an arpeggio; for example, leave 1, 3, 5 and 1* for a triad. The <em>Range</em> dropdown sets how many octaves it spans (the choices adapt to how much room the start note leaves before the edge of the harp), and your chosen degree pattern repeats in each octave. <em>Speed</em> sets how many notes play per second. <em>Glissando</em> sweeps every string between two notes.<br/><br/>
+          <strong>Modes:</strong> <em>Scale / Arpeggio</em> plays a run from your start note. The eight buttons are the scale degrees (1–7 plus the octave, 1*): with all lit it's a full scale, and deselecting some makes an arpeggio; for example, leave 1, 3, 5 and 1* for a triad. The <em>Range</em> dropdown sets how many octaves it spans (the choices adapt to how much room the start note leaves before the edge of the harp), and your chosen degree pattern repeats in each octave. <em>Speed</em> sets how many notes play per second. <em>Chord</em> lets you pick any set of strings on the 47-string grid (colour-coded by octave); by default they sound together as a block chord, repeating after the Loop interval, and <em>Break chord</em> arpeggiates them instead, following the direction buttons and its own speed (again pausing the Loop interval between passes, unless Continuous is on). <em>Glissando</em> sweeps every string between two notes.<br/><br/>
+          <strong>Loop:</strong> When ticked (the default), playback repeats with the given gap between passes, settable from 1 to 20 seconds (each mode remembers its own; Scale/Arpeggio and Glissando default to 1&nbsp;s, Chord to 4&nbsp;s); untick it to play a single pass and stop. For the Both direction that means one full out-and-back pass. With Continuous set to Yes, a ticked Loop repeats seamlessly and the interval is ignored.<br/><br/>
+          <strong>Continuous (Both direction):</strong> <em>Yes</em> ping-pongs seamlessly with no pause and neither turnaround note repeated; <em>No</em> plays one full out-and-back pass, then pauses for the Loop interval before repeating. Each mode remembers its own choice.<br/><br/>
+          <strong>8-note limit:</strong> A harpist plays with four fingers of each hand (the little fingers are not used), so at most eight strings can be plucked simultaneously. A chord of more than eight notes must be broken (rolled or arpeggiated) on the real instrument. In Chord mode, ticking <em>Enforce: 8-note limit</em> greys out the remaining strings once eight are selected; untick it to select freely.<br/><br/>
+          <strong>Hand span limit:</strong> Available when the 8-note limit is enforced. Each hand holds at most four notes, which must fit within the given number of consecutive strings, counting both ends. So the default of 10 means the lowest and highest note in a hand are at most a 10th apart, e.g. 4C up to 3E (allowed 8–15). Hands are assigned invisibly: notes beyond one hand's reach go to the other, and any string that no legal two-hand arrangement could still include is greyed out.<br/><br/>
           <strong>Snap to root:</strong> When on, pedalling into a configuration that matches a known scale automatically moves the start (and end) notes to that scale's root. Turn it off to pedal around freely without the notes jumping. Choosing a preset from the menu always snaps, regardless of this setting.<br/><br/>
           <strong>Sound:</strong> Sampled concert harp from the Versilian Community Sample Library (VCSL, CC0).
         </div>
@@ -2103,10 +2717,17 @@ export default function HarpGliss() {
           )
         )}
 
+        {storageWarn && (
+          <div style={{ background:t.redLt, border:`1px solid ${t.redBdr}`, borderRadius:6, padding:"7px 12px", marginBottom:8, fontSize:12, color:t.redTx, display:"flex", justifyContent:"space-between", alignItems:"center", gap:8 }}>
+            <span>⚠ {storageWarn}</span>
+            <button onClick={() => setStorageWarn("")} style={{ background:"none", border:"none", cursor:"pointer", color:t.redTx, fontSize:14 }}>×</button>
+          </div>
+        )}
+
         {importMsg && (
           <div style={{ background:t.grnLt2, border:`1px solid ${t.grnBdr}`, borderRadius:6, padding:"7px 12px", marginBottom:8, fontSize:12, color:t.grnTx, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
             <span>{importMsg}</span>
-            <button onClick={() => setImportMsg("")} style={{ background:"none", border:"none", cursor:"pointer", color:t.grnTx, fontSize:14 }}>×</button>
+            <button onClick={() => { if (importMsgTimer.current) { clearTimeout(importMsgTimer.current); importMsgTimer.current = null; } setImportMsg(""); }} style={{ background:"none", border:"none", cursor:"pointer", color:t.grnTx, fontSize:14 }}>×</button>
           </div>
         )}
 
@@ -2311,24 +2932,34 @@ export default function HarpGliss() {
       <div style={{ flex: wide ? "1 1 0" : "0 1 auto", minWidth:0, width: wide ? "auto" : "100%" }}>
 
       {/* Mode + direction toggles */}
-      <div style={{ display:"flex", gap:10, flexWrap:"wrap", marginBottom:12 }}>
+      <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:12 }}>
         <div style={{ display:"flex", border:`1.5px solid ${t.bdr2}`, borderRadius:6, overflow:"hidden" }}>
           <button onClick={() => { setMode("scale"); stop(); }} style={seg(mode==="scale")}>Scale / Arpeggio</button>
+          <button onClick={() => { setMode("chord"); stop(); }} style={seg(mode==="chord")}>Chord</button>
           <button onClick={() => { setMode("gliss"); stop(); }} style={seg(mode==="gliss")}>Glissando</button>
         </div>
-        <div style={{ display:"flex", border:`1.5px solid ${t.bdr2}`, borderRadius:6, overflow:"hidden" }}>
-          <button onClick={() => { setDirection("asc"); stop(); }} style={seg(direction==="asc")}>↑ Ascending</button>
-          <button onClick={() => { setDirection("desc"); stop(); }} style={seg(direction==="desc")}>↓ Descending</button>
-          <button onClick={() => { setDirection("both"); stop(); }} style={seg(direction==="both")}>⇅ Both</button>
-        </div>
+        {/* Direction is ignored (and dimmed) for an unbroken chord. */}
+        {(() => {
+          const dirOff = mode === "chord" && !breakChord;
+          const dirSeg = (active) => ({ ...seg(active), ...(dirOff ? { opacity:0.4, cursor:"default" } : {}) });
+          return (
+            <div style={{ display:"flex", border:`1.5px solid ${t.bdr2}`, borderRadius:6, overflow:"hidden", opacity: dirOff ? 0.75 : 1 }}>
+              <button disabled={dirOff} onClick={() => { setDirection("asc"); stop(); }} style={dirSeg(direction==="asc")}>↑ Asc.</button>
+              <button disabled={dirOff} onClick={() => { setDirection("desc"); stop(); }} style={dirSeg(direction==="desc")}>↓ Desc.</button>
+              <button disabled={dirOff} onClick={() => { setDirection("both"); stop(); }} style={dirSeg(direction==="both")}>⇅ Both</button>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Mode controls */}
       <div style={{ background:t.card, border:`1px solid ${t.bdr}`, borderRadius:8, padding:14, marginBottom:12 }}>
-        <label style={{ display:"flex", gap:8, alignItems:"center", fontSize:12, color:t.text2, cursor:"pointer", marginBottom:12 }}>
-          <input type="checkbox" checked={rootSnap} onChange={e => setRootSnap(e.target.checked)} />
-          Snap to root when pedalling into a known scale
-        </label>
+        {mode !== "chord" && (
+          <label style={{ display:"flex", gap:8, alignItems:"center", fontSize:12, color:t.text2, cursor:"pointer", marginBottom:12 }}>
+            <input type="checkbox" checked={rootSnap} onChange={e => setRootSnap(e.target.checked)} />
+            Snap to root when pedalling into a known scale
+          </label>
+        )}
         {mode === "scale" && (
           <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10, flexWrap:"wrap" }}>
             <label style={{ fontSize:12, color:t.text3 }}>Start note:</label>
@@ -2369,6 +3000,8 @@ export default function HarpGliss() {
             </label>
           </div>
         )}
+
+        {mode === "scale" && direction === "both" && continuousRow()}
 
         {mode === "scale" && (
           <div style={{ marginBottom:10 }}>
@@ -2417,6 +3050,8 @@ export default function HarpGliss() {
           </div>
         )}
 
+        {mode === "scale" && loopRow()}
+
         {mode === "gliss" && (
           <>
             <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10, flexWrap:"wrap" }}>
@@ -2450,6 +3085,7 @@ export default function HarpGliss() {
                 ))}
               </select>
             </div>
+            {direction === "both" && continuousRow()}
             <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
               <label style={{ fontSize:12, color:t.text3, whiteSpace:"nowrap" }}>Speed:</label>
               <input type="range" min={1} max={40} step={1} value={speed}
@@ -2461,6 +3097,143 @@ export default function HarpGliss() {
                 style={{ ...inputStyle, width:46, textAlign:"center" }}/>
               <span style={{ fontSize:12, color:t.text3, whiteSpace:"nowrap" }}>notes/s</span>
             </div>
+            {loopRow()}
+          </>
+        )}
+
+        {mode === "chord" && (
+          <>
+            {/* Octave legend: colour codes the octave number of each button below */}
+            <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:8, flexWrap:"wrap" }}>
+              <span style={{ fontSize:12, color:t.text3 }}>Octave:</span>
+              {[7,6,5,4,3,2,1,0].map(o => (
+                <span key={o} style={{
+                  fontSize:11, fontWeight:700, color:"white", background:OCT_COLORS[o],
+                  borderRadius:4, padding:"1px 7px", lineHeight:"16px",
+                }}>{o}</span>
+              ))}
+              <span style={{ fontSize:10.5, color:t.text7 }}>low → high</span>
+            </div>
+
+            {/* 47-string grid: bottom-left = 7C, rising left-to-right then upward.
+                Top row (1C…0G) has 5 strings; spacers keep the columns aligned.
+                Selected/greyed styling matches the Scale/Arpeggio degree toggles;
+                the octave colour lives in the thin accent bar along the bottom
+                edge (see legend above). Fixed height + flex centring keep the
+                text steady when ♭/♯ appear. */}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(7, 1fr)", gap:4, marginBottom:8 }}>
+              {[6,5,4,3,2,1,0].flatMap(r => {
+                const cells = rng(r * 7, Math.min(r * 7 + 6, 46)).map(i => {
+                  const s = STRINGS[i];
+                  const sel = chordSel.has(i);
+                  // Unselectable while the limits (8-note cap / hand span) would
+                  // be broken by adding this note.
+                  const greyed = !sel && !chordAddOK(chordSel, i);
+                  const isNow = playing && currentIdx === i;
+                  const oc = OCT_COLORS[s.oct];
+                  // Longhand borders only: mixing the `border` shorthand with a
+                  // `borderBottom` longhand makes React drop the accent bar when
+                  // the shorthand changes on select/deselect.
+                  const edge = `1.5px solid ${sel ? oc : t.bdr}`;
+                  return (
+                    <button key={i} disabled={greyed} onClick={() => toggleChordNote(i)} title={noteLabel(i, pedals)} style={{
+                      height:24, padding:0, borderRadius:5,
+                      cursor: greyed ? "default" : "pointer",
+                      borderTop:edge, borderLeft:edge, borderRight:edge,
+                      borderBottom:`3px solid ${oc}`,
+                      background: sel ? oc : t.card3,
+                      color: sel ? "white" : greyed ? t.text6 : t.text2,
+                      fontSize:14, fontWeight: sel ? 700 : 400,
+                      fontFamily:"inherit",
+                      display:"flex", alignItems:"center", justifyContent:"center",
+                      boxShadow: isNow ? `0 0 0 2px ${t.accent3}` : "none",
+                    }}>
+                      {s.letter}{accSymbol(pedals[s.letter])}
+                    </button>
+                  );
+                });
+                while (cells.length < 7) cells.push(<div key={`sp-${r}-${cells.length}`} />);
+                return cells;
+              })}
+            </div>
+
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+              <span style={{ fontSize:12, color:t.text3 }}>
+                {chordSel.size} note{chordSel.size === 1 ? "" : "s"} selected
+              </span>
+              <button onClick={() => setChordSel(new Set())}
+                style={{ ...btn(false), fontSize:11, padding:"3px 10px" }}>
+                Clear
+              </button>
+            </div>
+
+            {/* The hand-span group is always rendered and merely hidden when the
+                8-note limit is off, so it reserves identical space in both states
+                (including when it wraps to a second line on narrow screens) and
+                the row height never changes. */}
+            <div style={{ display:"flex", alignItems:"center", gap:16, flexWrap:"wrap", marginBottom:10, minHeight:28 }}>
+              <label style={{ display:"flex", gap:8, alignItems:"center", fontSize:12, color:t.text2, cursor:"pointer" }}>
+                Enforce:
+                <input type="checkbox" checked={enforce8}
+                  onChange={e => setEnforce8(e.target.checked)} />
+                8-note limit
+              </label>
+              {(
+                <div style={{ display:"flex", gap:6, alignItems:"center", visibility: enforce8 ? "visible" : "hidden" }}>
+                  <label style={{ display:"flex", gap:6, alignItems:"center", fontSize:12, color:t.text2, cursor:"pointer" }}>
+                    <input type="checkbox" checked={handSpanOn}
+                      onChange={e => setHandSpanOn(e.target.checked)} />
+                    Hand span limit:
+                  </label>
+                  <input type="text" inputMode="numeric" value={handSpanField}
+                    disabled={!handSpanOn}
+                    onChange={e => setHandSpanField(e.target.value.replace(/[^0-9]/g, ""))}
+                    onBlur={commitHandSpan}
+                    onKeyDown={e => e.key === "Enter" && e.currentTarget.blur()}
+                    style={{ ...inputStyle, width:40, textAlign:"center", opacity: handSpanOn ? 1 : 0.5 }}/>
+                </div>
+              )}
+            </div>
+
+            <label style={{ display:"flex", gap:8, alignItems:"center", fontSize:12, color:t.text2, cursor:"pointer", marginBottom:10 }}>
+              <input type="checkbox" checked={breakChord}
+                onChange={e => { setBreakChord(e.target.checked); stop(); }} />
+              Break chord
+            </label>
+
+            {breakChord && direction === "both" && (
+              <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:10, flexWrap:"wrap" }}>
+                <label style={{ fontSize:12, color:t.text3 }}>Bounce:</label>
+                <label style={{ display:"flex", gap:5, alignItems:"center", fontSize:12, color:t.text2, cursor:"pointer" }}>
+                  <input type="radio" name="chordBothStart" checked={bothStart === "up"}
+                    onChange={() => { setBothStart("up"); stop(); }} />
+                  Up first ↑↓
+                </label>
+                <label style={{ display:"flex", gap:5, alignItems:"center", fontSize:12, color:t.text2, cursor:"pointer" }}>
+                  <input type="radio" name="chordBothStart" checked={bothStart === "down"}
+                    onChange={() => { setBothStart("down"); stop(); }} />
+                  Down first ↓↑
+                </label>
+              </div>
+            )}
+
+            {breakChord && direction === "both" && continuousRow()}
+
+            {breakChord && (
+              <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
+                <label style={{ fontSize:12, color:t.text3, whiteSpace:"nowrap" }}>Speed:</label>
+                <input type="range" min={1} max={40} step={1} value={chordSpeed}
+                  onChange={e => setChordSpeed(Number(e.target.value))} style={{ flex:1 }}/>
+                <input type="text" inputMode="numeric" value={chordSpeedField}
+                  onChange={e => setChordSpeedField(e.target.value.replace(/[^0-9]/g, ""))}
+                  onBlur={commitChordSpeed}
+                  onKeyDown={e => e.key === "Enter" && e.currentTarget.blur()}
+                  style={{ ...inputStyle, width:46, textAlign:"center" }}/>
+                <span style={{ fontSize:12, color:t.text3, whiteSpace:"nowrap" }}>notes/s</span>
+              </div>
+            )}
+
+            {loopRow()}
           </>
         )}
 
@@ -2486,64 +3259,91 @@ export default function HarpGliss() {
         </div>
       )}
 
-      {/* Advanced gliss settings */}
+      {/* Advanced settings — per-mode sound tuning. Each mode remembers its
+          own Sostenuto and Max voices (see SOUND_DEFAULTS). Gliss measures
+          Sostenuto in notes so the ring scales with speed; Scale/Arpeggio and
+          Chord measure it in seconds (previously hard-coded at 3.4 s). */}
       <div style={{ marginBottom:12 }}>
         <button onClick={() => setShowTuner(s => !s)} style={{ ...btn(showTuner), fontSize:12 }}>
-          🎛 Advanced gliss settings {showTuner ? "▲" : "▼"}
+          🎛 Advanced settings {showTuner ? "▲" : "▼"}
         </button>
-        {showTuner && (
-          <div style={{ background:t.ylwLt, border:`1px solid ${t.ylwBdr3}`, borderRadius:6, padding:12, marginTop:8 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4 }}>
-              <label style={{ fontSize:12, color:t.text3, width:130, whiteSpace:"nowrap" }}>
-                Sostenuto: {tailNotes} notes
-              </label>
-              <input type="range" min={1} max={60} step={1} value={tailNotes}
-                onChange={e => setTailNotes(Number(e.target.value))} style={{ flex:1 }}/>
+        {showTuner && (() => {
+          const cur = soundSettings[mode];
+          const isG = mode === "gliss";
+          const mvMax = mode === "chord" ? 94 : 70;
+          const modeName = mode === "gliss" ? "Glissando" : mode === "chord" ? "Chord" : "Scale/Arpeggio";
+          return (
+            <div style={{ background:t.ylwLt, border:`1px solid ${t.ylwBdr3}`, borderRadius:6, padding:12, marginTop:8 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4 }}>
+                <label style={{ fontSize:12, color:t.text3, width:130, whiteSpace:"nowrap" }}>
+                  Sostenuto: {isG ? `${cur.tail} notes` : `${cur.tail.toFixed(1)} s`}
+                </label>
+                <input type="range"
+                  min={isG ? 1 : 0.5} max={isG ? 60 : 8} step={isG ? 1 : 0.1}
+                  value={cur.tail}
+                  onChange={e => setSound({ tail: Number(e.target.value) })} style={{ flex:1 }}/>
+              </div>
+              <div style={{ fontSize:10.5, color:t.text7, marginBottom:12 }}>
+                {isG
+                  ? "How long each string rings, in notes. Lower = drier and cleaner; higher = lusher wash, but more static (especially on chord-type glisses, which double more strings)."
+                  : "How long each string rings after it's plucked, in seconds, regardless of playback speed."}
+              </div>
+              <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4 }}>
+                <label style={{ fontSize:12, color:t.text3, width:130, whiteSpace:"nowrap" }}>
+                  Max voices: {cur.maxVoices}
+                </label>
+                <input type="range" min={4} max={mvMax} step={1} value={cur.maxVoices}
+                  onChange={e => setSound({ maxVoices: Number(e.target.value) })} style={{ flex:1 }}/>
+              </div>
+              <div style={{ fontSize:10.5, color:t.text7, marginBottom:12 }}>
+                {mode === "chord"
+                  ? "Ceiling on how many strings ring at once. 47 covers every string on the harp, so even a full-board chord is never cut short."
+                  : "Ceiling on how many strings ring at once. Lower it to tame static without shortening the ring."}
+              </div>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", paddingTop:8, borderTop:`1px solid ${t.ylwDiv}` }}>
+                <span style={{ fontSize:11, color:t.ylwTx4 }}>
+                  {isG
+                    ? <>At {speed} notes/s, each voice rings ≈ {(cur.tail / speed).toFixed(2)}s.</>
+                    : <>Defaults for this mode: {SOUND_DEFAULTS[mode].tail.toFixed(1)} s / {SOUND_DEFAULTS[mode].maxVoices} voices.</>}
+                </span>
+                <button
+                  onClick={() => setSound({ ...SOUND_DEFAULTS[mode] })}
+                  style={{ ...btn(false), fontSize:11, padding:"3px 10px" }}
+                >
+                  Reset these
+                </button>
+              </div>
             </div>
-            <div style={{ fontSize:10.5, color:t.text7, marginBottom:12 }}>
-              How long each string rings, in notes. Lower = drier and cleaner; higher = lusher wash, but more static (especially on chord-type glisses, which double more strings).
-            </div>
-            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4 }}>
-              <label style={{ fontSize:12, color:t.text3, width:130, whiteSpace:"nowrap" }}>
-                Max voices: {maxVoices}
-              </label>
-              <input type="range" min={4} max={70} step={1} value={maxVoices}
-                onChange={e => setMaxVoices(Number(e.target.value))} style={{ flex:1 }}/>
-            </div>
-            <div style={{ fontSize:10.5, color:t.text7, marginBottom:12 }}>
-              Ceiling on how many strings ring at once. Lower it to tame static without shortening the ring.
-            </div>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", paddingTop:8, borderTop:`1px solid ${t.ylwDiv}` }}>
-              <span style={{ fontSize:11, color:t.ylwTx4 }}>
-                At {speed} notes/s, each voice rings ≈ {(tailNotes / speed).toFixed(2)}s.
-              </span>
-              <button
-                onClick={() => { setTailNotes(24); setMaxVoices(24); }}
-                style={{ ...btn(false), fontSize:11, padding:"3px 10px" }}
-              >
-                Reset these
-              </button>
-            </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* Play */}
+      {(() => {
+        const noChordNotes = mode === "chord" && chordSel.size === 0 && !playing;
+        const noScaleNotes = mode === "scale" && !arpMask.some(Boolean) && !playing;
+        const playDisabled = noChordNotes || noScaleNotes;
+        return (
       <button
+        disabled={playDisabled}
         onClick={() => (playing ? stop() : start())}
         style={{
           width:"100%", padding:12, borderRadius:8, border:"none",
-          background: playing ? t.red : t.grn, color:"white",
-          fontSize:16, fontWeight:"bold", cursor:"pointer", letterSpacing:1,
-          lineHeight:1.5, boxShadow:t.shadowL,
+          background: playing ? t.red : playDisabled ? t.text6 : t.grn, color:"white",
+          fontSize:16, fontWeight:"bold", cursor: playDisabled ? "default" : "pointer", letterSpacing:1,
+          lineHeight:1.5, boxShadow:t.shadowL, opacity: playDisabled ? 0.5 : 1,
         }}
       >
         {playing ? "⏹ Stop" : "▶ Play"}
       </button>
+        );
+      })()}
 
       <div style={{ marginTop:10, fontSize:12, color:t.text5, textAlign:"center", minHeight:16, lineHeight:"16px" }}>
         {playing && currentIdx !== null
           ? <>Now playing: <strong style={{ display:"inline-block", minWidth:"2.6em", textAlign:"left", lineHeight:"16px" }}>{noteLabel(currentIdx, pedals)}</strong></>
+          : mode === "chord" && chordSel.size === 0
+          ? "Select notes on the grid to build a chord"
           : "Pedal changes apply live during playback"}
       </div>
 
