@@ -87,13 +87,13 @@ function ChordStaff({ noteIdxs, pedals, t, dark }) {
   // the staff never moves when high or low notes are added, and the permanent
   // headroom clears the treble clef's ascender (~31px above the G4 line).
   const topExt = 53, botExt = 7;
-  const padT = 8, padB = 8, W = 118;
+  const padT = 8, padB = 8, W = 96;
   const y = step => padT + (topExt - step) * u;
   const H = padT + (topExt - botExt) * u + padB;
 
   // Notehead x, with seconds offset to the right.
   const k = gap / 250, headW = 422 * k;   // Bravura whole-note width
-  const headX = 74, headOff = headW;
+  const headX = 68, headOff = headW;
   let prevStep = null, prevShift = false;
   const placed = notes.map(n => {
     const shift = prevStep !== null && n.step - prevStep === 1 && !prevShift;
@@ -3349,7 +3349,7 @@ export default function HarpGliss() {
                 preview (right-aligned; wraps below on narrow screens). The
                 staff only renders once at least one string is selected. */}
             <div style={{ display:"flex", gap:14, alignItems:"flex-start", flexWrap:"wrap" }}>
-            <div style={{ flex:"1 1 230px", minWidth:0 }}>
+            <div style={{ flex:"1 1 200px", minWidth:0 }}>
             <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:10 }}>
               {/* Fixed min-width + tabular digits so the Clear button never
                   shifts as the count (and singular/plural) changes. */}
