@@ -2614,7 +2614,15 @@ export default function HarpGliss() {
     background: active ? t.accent : t.card2,
     color: active ? "white" : t.text,
     cursor:"pointer", fontSize:13, fontWeight: active ? 600 : 400,
+    display:"inline-grid",
   });
+  // Width-stable button label: invisible bold copy reserves the widest width.
+  const btnLabel = (label, active) => (
+    <>
+      <span style={{ gridArea:"1/1", visibility:"hidden", fontWeight:600 }}>{label}</span>
+      <span style={{ gridArea:"1/1", fontWeight: active ? 600 : 400 }}>{label}</span>
+    </>
+  );
   // Compact variant for the Presets…Reset-all toolbar so it fits one line on desktop; mobile keeps roomy padding.
   const btnRow = (active) => ({ ...btn(active), padding: wide ? "5px 9px" : "5px 14px" });
   const seg = (active) => ({
@@ -2622,7 +2630,16 @@ export default function HarpGliss() {
     background: active ? t.accent3 : t.card,
     color: active ? (dk?"#1a1a2e":"white") : t.text,
     cursor:"pointer", fontSize:13, fontWeight: active ? 600 : 400,
+    display:"inline-grid",
   });
+  // Width-stable toggle button: an invisible bold copy always reserves the
+  // bold-text width, so toggling fontWeight never changes the button size.
+  const segLabel = (label, active) => (
+    <>
+      <span style={{ gridArea:"1/1", visibility:"hidden", fontWeight:600 }}>{label}</span>
+      <span style={{ gridArea:"1/1", fontWeight: active ? 600 : 400 }}>{label}</span>
+    </>
+  );
 
   // ── Chord grid: one colour per octave (legend shown above the grid) ──
   const OCT_COLORS = dk
@@ -2723,7 +2740,11 @@ export default function HarpGliss() {
             {darkMode ? "☀️" : "🌙"}
           </button>
           <button onClick={() => setShowHelp(h => !h)} style={{ ...btn(showHelp), fontSize:12 }}>
-            {showHelp ? "Close help" : "? Help"}
+            {/* Reserve wider label so button width is stable */}
+            <span style={{ gridArea:"1/1", visibility:"hidden", fontWeight:600 }}>Close help</span>
+            <span style={{ gridArea:"1/1", fontWeight: showHelp ? 600 : 400 }}>
+              {showHelp ? "Close help" : "? Help"}
+            </span>
           </button>
         </div>
       </div>
@@ -2797,9 +2818,12 @@ export default function HarpGliss() {
       <div style={{ marginBottom:12 }}>
         <div style={{ display:"flex", gap: wide ? 5 : 8, flexWrap:"wrap", marginBottom: (showPresets || showSave) ? 8 : 0 }}>
           <button onClick={() => { setShowPresets(p => !p); setOpenCategory(null); }} style={btnRow(showPresets)}>
-            Presets {showPresets ? "▲" : "▼"}
+            <span style={{ gridArea:"1/1", visibility:"hidden", fontWeight:600 }}>Presets ▲</span>
+            <span style={{ gridArea:"1/1", fontWeight: showPresets ? 600 : 400 }}>
+              {`Presets ${showPresets ? "▲" : "▼"}`}
+            </span>
           </button>
-          <button onClick={() => setShowSave(s => !s)} style={btnRow(showSave)}>Save current</button>
+          <button onClick={() => setShowSave(s => !s)} style={btnRow(showSave)}>{btnLabel("Save current", showSave)}</button>
           <button
             onClick={() => {
               if (userPresets.length === 0) { setImportMsg("You have no saved configurations to export yet."); return; }
@@ -2810,9 +2834,9 @@ export default function HarpGliss() {
             }}
             style={btnRow(exportMode)}
           >
-            Export
+            {btnLabel("Export", exportMode)}
           </button>
-          <button onClick={() => fileInputRef.current && fileInputRef.current.click()} style={btnRow(false)}>Import</button>
+          <button onClick={() => fileInputRef.current && fileInputRef.current.click()} style={btnRow(false)}>{btnLabel("Import", false)}</button>
           <input
             ref={fileInputRef}
             type="file"
@@ -2820,11 +2844,15 @@ export default function HarpGliss() {
             style={{ display:"none" }}
             onChange={e => { const f = e.target.files[0]; if (f) importConfigs(f); e.target.value = ""; }}
           />
-          <button onClick={resetSettings} style={btnRow(false)}>Reset</button>
+          <button onClick={resetSettings} style={btnRow(false)}>{btnLabel("Reset", false)}</button>
           <button onClick={resetAll} style={resetAllArmed
             ? { ...btnRow(true), background:t.red, borderColor:t.red }
             : { ...btnRow(false), color:t.redTx2, borderColor:t.dgn }}>
-            {resetAllArmed ? "Confirm?" : "Reset all"}
+            {/* Reserve the wider of the two labels so the button never jumps */}
+            <span style={{ gridArea:"1/1", visibility:"hidden", fontWeight:600 }}>Reset all</span>
+            <span style={{ gridArea:"1/1", fontWeight:600 }}>
+              {resetAllArmed ? "Confirm?" : "Reset all"}
+            </span>
           </button>
         </div>
 
@@ -2906,9 +2934,12 @@ export default function HarpGliss() {
                     <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap", paddingBottom:4 }}>
                       <button
                         onClick={() => exportSel.size === userPresets.length ? setExportSel(new Set()) : setExportSel(new Set(userPresets.map((_, i) => i)))}
-                        style={{ ...btn(false), fontSize:11, padding:"3px 10px" }}
+                        style={{ ...btn(false), fontSize:11, padding:"3px 10px", display:"inline-grid" }}
                       >
-                        {exportSel.size === userPresets.length ? "Clear all" : "Select all"}
+                        <span style={{ gridArea:"1/1", visibility:"hidden" }}>Select all</span>
+                        <span style={{ gridArea:"1/1" }}>
+                          {exportSel.size === userPresets.length ? "Clear all" : "Select all"}
+                        </span>
                       </button>
                       <button
                         onClick={() => { exportSelected([...exportSel]); setExportMode(false); setExportSel(new Set()); }}
@@ -3085,9 +3116,9 @@ export default function HarpGliss() {
       {/* Mode + direction toggles */}
       <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:12 }}>
         <div style={{ display:"flex", border:`1.5px solid ${t.bdr2}`, borderRadius:6, overflow:"hidden" }}>
-          <button onClick={() => { setMode("scale"); stop(); }} style={seg(mode==="scale")}>Scale / Arpeggio</button>
-          <button onClick={() => { setMode("chord"); stop(); }} style={seg(mode==="chord")}>Chord</button>
-          <button onClick={() => { setMode("gliss"); stop(); }} style={seg(mode==="gliss")}>Glissando</button>
+          <button onClick={() => { setMode("scale"); stop(); }} style={seg(mode==="scale")}>{segLabel("Scale / Arpeggio", mode==="scale")}</button>
+          <button onClick={() => { setMode("chord"); stop(); }} style={seg(mode==="chord")}>{segLabel("Chord", mode==="chord")}</button>
+          <button onClick={() => { setMode("gliss"); stop(); }} style={seg(mode==="gliss")}>{segLabel("Glissando", mode==="gliss")}</button>
         </div>
         {/* Direction is ignored (and dimmed) for an unbroken chord. */}
         {(() => {
@@ -3095,9 +3126,9 @@ export default function HarpGliss() {
           const dirSeg = (active) => ({ ...seg(active), ...(dirOff ? { opacity:0.4, cursor:"default" } : {}) });
           return (
             <div style={{ display:"flex", border:`1.5px solid ${t.bdr2}`, borderRadius:6, overflow:"hidden", opacity: dirOff ? 0.75 : 1 }}>
-              <button disabled={dirOff} onClick={() => { setDirection("asc"); stop(); }} style={dirSeg(direction==="asc")}>↑ Asc.</button>
-              <button disabled={dirOff} onClick={() => { setDirection("desc"); stop(); }} style={dirSeg(direction==="desc")}>↓ Desc.</button>
-              <button disabled={dirOff} onClick={() => { setDirection("both"); stop(); }} style={dirSeg(direction==="both")}>⇅ Both</button>
+              <button disabled={dirOff} onClick={() => { setDirection("asc"); stop(); }} style={dirSeg(direction==="asc")}>{segLabel("↑ Asc.", direction==="asc")}</button>
+              <button disabled={dirOff} onClick={() => { setDirection("desc"); stop(); }} style={dirSeg(direction==="desc")}>{segLabel("↓ Desc.", direction==="desc")}</button>
+              <button disabled={dirOff} onClick={() => { setDirection("both"); stop(); }} style={dirSeg(direction==="both")}>{segLabel("⇅ Both", direction==="both")}</button>
             </div>
           );
         })()}
@@ -3436,7 +3467,10 @@ export default function HarpGliss() {
           Chord measure it in seconds (previously hard-coded at 3.4 s). */}
       <div style={{ marginBottom:12 }}>
         <button onClick={() => setShowTuner(s => !s)} style={{ ...btn(showTuner), fontSize:12 }}>
-          🎛 Advanced settings {showTuner ? "▲" : "▼"}
+          <span style={{ gridArea:"1/1", visibility:"hidden", fontWeight:600 }}>🎛 Advanced settings ▲</span>
+          <span style={{ gridArea:"1/1", fontWeight: showTuner ? 600 : 400 }}>
+            {`🎛 Advanced settings ${showTuner ? "▲" : "▼"}`}
+          </span>
         </button>
         {showTuner && (() => {
           const cur = soundSettings[mode];
