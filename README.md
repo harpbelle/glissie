@@ -23,6 +23,7 @@
 
 - **Audio**: Concert Harp from the [Versilian Community Sample Library](https://github.com/sgossner/VCSL) (CC0 1.0).
 - **Code & design**: Yijun Lin, vibe coded with [Claude.ai](https://claude.ai) (Anthropic).
+- **Musical glyphs**: from Bravura, SIL OFL.
 
 ## Licence
 

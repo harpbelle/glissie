@@ -47,6 +47,157 @@ function rng(a, b) {
   return r;
 }
 
+// ─── CHORD NOTATION PREVIEW ─────────────────────────────────────────────────
+// Grand-staff SVG of the currently selected chord. Module-level (not inline in
+// the main component) so React never remounts it. Notes are placed by diatonic
+// step (octave*7 + letter index, scientific octave from the natural MIDI), so
+// a string always sits on the same line/space and only its accidental changes
+// with the pedals. Middle C and above go on the treble staff, B3 and below on
+// the bass. Whole noteheads; seconds get the conventional right-offset; ♭/♯
+// glyphs stagger into a second column when they would collide vertically.
+// Clef outlines extracted from Bravura (Steinberg Media Technologies, SIL OFL
+// 1.1), the SMuFL reference font, so the preview matches engraved notation and
+// never depends on system symbol fonts. Paths are in font units (1000/em, one
+// staff space = 250 units), Y already flipped for SVG; the glyph origin sits
+// exactly on the clef's reference line (G4 for treble, F3 for bass), so they
+// are placed with translate(x, y(refLine)) scale(gap/250).
+// Accidentals from the same font; origin is vertically centred on the
+// notehead's line/space, per SMuFL.
+const FLAT_PATH = "M12 170C15 174 18 175 21 175C24 175 27 173 27 173C57 156 81 129 106 112C195 50 226 -11 226 -57C226 -114 182 -150 136 -153C119 -153 95 -145 81 -136C75 -131 64 -122 59 -122C57 -122 56 -122 54 -123C47 -126 43 -133 43 -140C44 -162 50 -402 50 -422C50 -433 41 -439 31 -439C17 -439 1 -429 0 -411C0 -411 4 160 12 170ZM47 81C47 81 44 21 44 -19C44 -35 45 -47 46 -51C53 -71 93 -100 116 -100C145 -100 157 -67 157 -42C157 12 111 66 68 93C64 95 61 96 58 96C49 96 47 86 47 81Z";
+const SHARP_PATH = "M237 -118C244 -121 249 -129 249 -135V-206C249 -211 246 -214 242 -214C240 -214 239 -214 237 -213C237 -213 217 -205 212 -204C205 -204 198 -209 198 -217V-339C198 -345 192 -350 184 -350C174 -350 168 -345 168 -339V-209C167 -199 164 -186 155 -180C143 -173 109 -159 92 -155C83 -155 80 -167 80 -175V-295C80 -301 73 -306 66 -306C56 -306 50 -301 50 -295V-160C50 -146 44 -136 38 -133C32 -130 12 -122 12 -122C5 -120 0 -112 0 -106V-35C0 -29 3 -26 9 -26L11 -27C12 -27 27 -33 35 -37L36 -38C44 -38 50 -28 50 -20V79C50 90 45 99 39 102C33 104 12 113 12 113C5 115 0 123 0 129V200C0 206 3 209 9 209L11 208C12 208 26 202 35 199C36 198 37 198 38 198C45 198 50 209 50 214V337C50 343 56 348 63 348C73 348 80 343 80 337V198C80 185 85 178 90 176L151 151C151 151 152 151 152 151L154 150C163 150 168 162 168 168V293C168 299 174 304 181 304C192 304 198 299 198 293V151C198 143 202 131 209 128C216 125 237 117 237 117C244 114 249 106 249 100V29C249 24 246 21 242 21C240 21 239 21 237 22L211 32C205 32 198 26 198 14V-79C198 -86 203 -105 211 -108ZM168 45C162 65 115 85 92 85C86 85 81 83 80 80C78 76 77 54 77 30C77 -1 78 -36 80 -44C82 -61 128 -82 153 -82C160 -82 166 -80 168 -76C170 -71 172 -46 172 -19C172 8 170 36 168 45Z";
+const GCLEF_PATH = "M376 -415C374 -427 376 -428 382 -434C490 -535 572 -662 572 -815C572 -902 548 -988 507 -1048C492 -1070 466 -1098 455 -1098C441 -1098 410 -1072 390 -1050C316 -968 292 -843 292 -739C292 -681 299 -616 306 -575C308 -563 309 -561 297 -551C153 -432 0 -289 0 -87C0 87 119 252 364 252C387 252 413 250 433 246C444 244 446 243 448 255C460 322 475 409 475 456C475 604 375 622 316 622C262 622 236 606 236 593C236 586 245 583 268 576C299 567 335 540 335 482C335 427 300 380 239 380C172 380 132 433 132 495C132 560 171 658 322 658C389 658 519 628 519 458C519 401 501 306 490 244C488 232 489 233 503 227C604 187 671 102 671 -11C671 -139 577 -252 430 -252C404 -252 404 -252 401 -270ZM470 -943C503 -943 530 -916 530 -861C530 -750 435 -660 356 -591C349 -585 345 -586 343 -599C339 -625 337 -659 337 -691C337 -847 409 -943 470 -943ZM361 -262C364 -243 364 -244 346 -238C258 -208 201 -129 201 -44C201 46 248 110 316 133C324 136 336 139 343 139C351 139 355 134 355 128C355 121 347 118 340 115C298 97 268 54 268 8C268 -49 307 -92 368 -109C384 -113 386 -112 388 -101L438 197C440 208 439 208 424 211C408 214 388 216 368 216C193 216 80 119 80 -20C80 -79 90 -158 173 -252C233 -319 279 -356 326 -394C336 -402 338 -401 340 -390ZM430 -103C428 -115 429 -118 441 -117C522 -110 589 -42 589 46C589 109 551 160 495 188C483 194 481 194 479 182Z";
+const FCLEF_PATH = "M252 -262C78 -262 0 -135 0 -39C0 41 42 110 123 110C186 110 229 66 229 4C229 -60 182 -100 133 -100C106 -100 96 -93 83 -93C70 -93 67 -101 67 -111C67 -151 127 -224 229 -224C335 -224 381 -120 381 37C381 316 243 472 10 605C1 610 -5 615 -5 623C-5 629 -1 635 8 635C13 635 19 633 25 630C271 510 531 332 531 28C531 -146 425 -262 252 -262ZM629 -180C598 -180 574 -156 574 -125C574 -94 598 -70 629 -70C660 -70 684 -94 684 -125C684 -156 660 -180 629 -180ZM630 71C599 71 576 94 576 125C576 156 599 179 630 179C661 179 684 156 684 125C684 94 661 71 630 71Z";
+// Grand-staff brace (accolade); 997 units tall in the font. Scaled to
+// span from the treble top line to the bass bottom line.
+const BRACE_PATH = "M20 -498C49 -516 82 -587 82 -646C82 -651 82 -657 81 -662C74 -722 44 -815 44 -869C44 -921 67 -971 72 -980C75 -986 77 -987 77 -990C77 -993 74 -997 71 -997C69 -997 67 -995 63 -990C41 -963 14 -905 14 -805C14 -706 49 -666 49 -603C49 -556 30 -530 2 -498C20 -478 49 -462 49 -397C49 -327 14 -265 14 -192C14 -92 41 -34 63 -6C67 -1 69 0 71 0C74 0 77 -3 77 -6C77 -9 76 -11 72 -17C67 -25 44 -75 44 -128C44 -181 74 -275 81 -334C82 -339 82 -344 82 -350C82 -409 49 -480 20 -498Z";
+// Engraved whole-note notehead (422 units wide, one staff space tall);
+// origin at the left edge, vertically centred on its line/space.
+const WHOLE_PATH = "M216 -125C83 -125 0 -70 0 -2C0 65 57 125 206 125C370 125 422 68 422 -2C422 -73 309 -125 216 -125ZM111 -63C122 -98 159 -103 190 -103C259 -103 314 -29 314 31C314 62 301 90 268 98C258 101 247 102 237 102C201 102 164 78 143 50C123 27 108 -7 108 -39C108 -47 109 -55 111 -63Z";
+const LETTER_STEP = { C:0, D:1, E:2, F:3, G:4, A:5, B:6 };
+function ChordStaff({ noteIdxs, pedals, t, dark }) {
+  const u = 3.5, gap = 2 * u;                 // half-space unit, line gap
+  const notes = noteIdxs.map(i => {
+    const s = STRINGS[i];
+    const octSci = Math.floor(s.midi / 12) - 1;      // scientific octave of the natural
+    return { step: octSci * 7 + LETTER_STEP[s.letter], acc: pedals[s.letter] };
+  }).sort((a, b) => a.step - b.step);
+
+  const TRE_TOP = 38, TRE_BOT = 30, BAS_TOP = 26, BAS_BOT = 18; // F5 E4 A3 G2
+  // Fixed canvas covering the harp's full range (0G step 53 down to 7C step 7):
+  // the staff never moves when high or low notes are added, and the permanent
+  // headroom clears the treble clef's ascender (~31px above the G4 line).
+  const topExt = 53, botExt = 7;
+  const padT = 8, padB = 8, W = 118;
+  const y = step => padT + (topExt - step) * u;
+  const H = padT + (topExt - botExt) * u + padB;
+
+  // Notehead x, with seconds offset to the right.
+  const k = gap / 250, headW = 422 * k;   // Bravura whole-note width
+  const headX = 74, headOff = headW;
+  let prevStep = null, prevShift = false;
+  const placed = notes.map(n => {
+    const shift = prevStep !== null && n.step - prevStep === 1 && !prevShift;
+    prevStep = n.step; prevShift = shift;
+    return { ...n, x: headX + (shift ? headOff : 0) };
+  });
+
+  // Accidental layout per standard engraving practice (Gould, Behind Bars):
+  // work from the outermost notes inward (highest first, then lowest, then
+  // second-highest…), placing each accidental in the rightmost column where
+  // its glyph doesn't collide with one already there. Collision uses the real
+  // Bravura extents in step units (1 space = 2 steps): a sharp spans ±2.8
+  // steps around its note; a flat is asymmetric, −1.4 below to +3.5 above
+  // (its stem points up). Columns march leftward from the chord.
+  const accX = 58, accOff = 9, MAX_COLS = 4, CLEAR = 0.5;
+  const EXTENT = { [-1]: [-1.4, 3.5], [1]: [-2.8, 2.8] };
+  const withAcc = placed.filter(n => n.acc);
+  // Zigzag order: indices from both ends of the (ascending) list, top first.
+  const order = [];
+  for (let hi = withAcc.length - 1, lo = 0; hi >= lo; hi--, lo++) {
+    order.push(withAcc[hi]);
+    if (lo < hi) order.push(withAcc[lo]);
+  }
+  const cols = [];                               // per column: occupied [lo,hi] spans
+  const accs = [];
+  order.forEach(n => {
+    const [dLo, dHi] = EXTENT[n.acc];
+    const span = [n.step + dLo - CLEAR, n.step + dHi + CLEAR];
+    let col = cols.findIndex(c => c.every(([lo, hi]) => span[1] <= lo || span[0] >= hi));
+    if (col === -1) {
+      if (cols.length < MAX_COLS) { col = cols.length; cols.push([]); }
+      else {
+        // All columns collide (extreme cluster): take the least-crowded one.
+        let best = 0, bestGap = -Infinity;
+        cols.forEach((c, i) => {
+          const gap = Math.min(...c.map(([lo, hi]) =>
+            Math.max(lo - span[1], span[0] - hi)));
+          if (gap > bestGap) { bestGap = gap; best = i; }
+        });
+        col = best;
+      }
+    }
+    cols[col].push(span);
+    accs.push({ step: n.step, acc: n.acc, x: accX - col * accOff });
+  });
+
+  // Ledger lines: per step, extend symmetrically (±8px) around each notehead
+  // that needs it, widening to cover offset seconds when both columns occur.
+  const ledger = new Map();                      // step → {x1, x2}
+  const addLedger = (s, x) => {
+    const e = ledger.get(s) || { x1: Infinity, x2: -Infinity };
+    e.x1 = Math.min(e.x1, x - 8); e.x2 = Math.max(e.x2, x + 8);
+    ledger.set(s, e);
+  };
+  placed.forEach(n => {
+    if (n.step > TRE_TOP) for (let s = TRE_TOP + 2; s <= n.step; s += 2) addLedger(s, n.x);
+    if (n.step >= 28 && n.step < TRE_BOT) addLedger(28, n.x);         // middle C
+    if (n.step < BAS_BOT) for (let s = BAS_BOT - 2; s >= n.step; s -= 2) addLedger(s, n.x);
+  });
+
+  const lines = [];
+  for (let s = TRE_TOP; s >= TRE_BOT; s -= 2) lines.push(s);
+  for (let s = BAS_TOP; s >= BAS_BOT; s -= 2) lines.push(s);
+  // Notation is always ink-on-paper: in dark mode the panel becomes a light
+  // blue "paper" card with near-black ink rather than inverting the staff.
+  const ink = dark ? "#1c2230" : t.text;
+  const paper = dark ? "#5c81bd" : "none";
+
+  return (
+    <svg width={W + 8} height={H} viewBox={`-8 0 ${W + 8} ${H}`} aria-label="Selected chord in musical notation"
+      style={{ background: paper, borderRadius: 8 }}>
+      {lines.map(s => (
+        <line key={s} x1={2} x2={W - 4} y1={y(s)} y2={y(s)} stroke={ink} strokeWidth={0.9} opacity={0.85}/>
+      ))}
+      {/* Connecting barline across both staves */}
+      <line x1={2} x2={2} y1={y(TRE_TOP)} y2={y(BAS_BOT)} stroke={ink} strokeWidth={1.2}/>
+      {/* Grand-staff brace; scaled to span from treble top to bass bottom */}
+      {(() => {
+        const span = y(BAS_BOT) - y(TRE_TOP);      // pixel height of both staves
+        const sy = span / 997;                       // font units → px
+        const sx = sy;                               // uniform scaling
+        const bx = 2 - 82 * sx;                     // right edge of glyph flush with barline
+        return <path d={BRACE_PATH} fill={ink}
+          transform={`translate(${bx} ${y(BAS_BOT)}) scale(${sx} ${sy})`}/>;
+      })()}
+      {/* Clefs: Bravura outlines, origin on the reference line (G4 / F3) */}
+      <path d={GCLEF_PATH} transform={`translate(6 ${y(32)}) scale(${k})`} fill={ink}/>
+      <path d={FCLEF_PATH} transform={`translate(6 ${y(24)}) scale(${k})`} fill={ink}/>
+      {[...ledger].map(([s, e]) => (
+        <line key={`l${s}`} x1={e.x1} x2={e.x2} y1={y(s)} y2={y(s)}
+          stroke={ink} strokeWidth={0.9} opacity={0.85}/>
+      ))}
+      {accs.map((a, i) => (
+        <path key={`a${i}`} d={a.acc === -1 ? FLAT_PATH : SHARP_PATH} fill={ink}
+          transform={`translate(${a.x - 4} ${y(a.step)}) scale(${k})`}/>
+      ))}
+      {placed.map((n, i) => (
+        <path key={`n${i}`} d={WHOLE_PATH} fill={ink}
+          transform={`translate(${n.x - headW / 2} ${y(n.step)}) scale(${k})`}/>
+      ))}
+    </svg>
+  );
+}
+
 // ─── SEQUENCE BUILDERS (pure; used at play start and at each loop boundary) ──
 // Scale/arpeggio: returns the ordered list of string indices for one pass.
 function buildScaleSequence(scaleStart, octaveCount, arpMask, direction, bothStart) {
@@ -3147,8 +3298,14 @@ export default function HarpGliss() {
                       fontFamily:"inherit",
                       display:"flex", alignItems:"center", justifyContent:"center",
                       boxShadow: isNow ? `0 0 0 2px ${t.accent3}` : "none",
+                      position:"relative",
                     }}>
                       {s.letter}{accSymbol(pedals[s.letter])}
+                      <span style={{
+                        position:"absolute", top:1, right:2,
+                        fontSize:7.5, lineHeight:"8px", fontWeight:600,
+                        opacity: sel ? 0.8 : 0.45,
+                      }}>{s.oct}</span>
                     </button>
                   );
                 });
@@ -3157,8 +3314,15 @@ export default function HarpGliss() {
               })}
             </div>
 
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
-              <span style={{ fontSize:12, color:t.text3 }}>
+            {/* Two columns: settings (left, flexible) and the live notation
+                preview (right-aligned; wraps below on narrow screens). The
+                staff only renders once at least one string is selected. */}
+            <div style={{ display:"flex", gap:14, alignItems:"flex-start", flexWrap:"wrap" }}>
+            <div style={{ flex:"1 1 230px", minWidth:0 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:10 }}>
+              {/* Fixed min-width + tabular digits so the Clear button never
+                  shifts as the count (and singular/plural) changes. */}
+              <span style={{ fontSize:12, color:t.text3, minWidth:98, fontVariantNumeric:"tabular-nums" }}>
                 {chordSel.size} note{chordSel.size === 1 ? "" : "s"} selected
               </span>
               <button onClick={() => setChordSel(new Set())}
@@ -3234,6 +3398,13 @@ export default function HarpGliss() {
             )}
 
             {loopRow()}
+            </div>
+            {chordSel.size > 0 && (
+              <div style={{ marginLeft:"auto", alignSelf:"center" }}>
+                <ChordStaff noteIdxs={[...chordSel].sort((a, b) => a - b)} pedals={pedals} t={t} dark={darkMode} />
+              </div>
+            )}
+            </div>
           </>
         )}
 
