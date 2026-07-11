@@ -3348,8 +3348,8 @@ export default function HarpGliss() {
             {/* Two columns: settings (left, flexible) and the live notation
                 preview (right-aligned; wraps below on narrow screens). The
                 staff only renders once at least one string is selected. */}
-            <div style={{ display:"flex", gap:14, alignItems:"flex-start", flexWrap:"wrap" }}>
-            <div style={{ flex:"1 1 200px", minWidth:0 }}>
+            <div style={{ display:"flex", gap:10, alignItems:"flex-start", flexWrap:"wrap" }}>
+            <div style={{ flex:"1 1 170px", minWidth:0 }}>
             <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:10 }}>
               {/* Fixed min-width + tabular digits so the Clear button never
                   shifts as the count (and singular/plural) changes. */}
@@ -3415,23 +3415,28 @@ export default function HarpGliss() {
             {breakChord && direction === "both" && continuousRow()}
 
             {breakChord && (
-              <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10, flexWrap:"wrap" }}>
                 <label style={{ fontSize:12, color:t.text3, whiteSpace:"nowrap" }}>Speed:</label>
+                {/* minWidth:0 lets the slider shrink below its ~129px intrinsic
+                    width; flex-basis keeps it usable. The count + unit wrap to
+                    the next line when the staff leaves too little room. */}
                 <input type="range" min={1} max={40} step={1} value={chordSpeed}
-                  onChange={e => setChordSpeed(Number(e.target.value))} style={{ flex:1 }}/>
-                <input type="text" inputMode="numeric" value={chordSpeedField}
-                  onChange={e => setChordSpeedField(e.target.value.replace(/[^0-9]/g, ""))}
-                  onBlur={commitChordSpeed}
-                  onKeyDown={e => e.key === "Enter" && e.currentTarget.blur()}
-                  style={{ ...inputStyle, width:46, textAlign:"center" }}/>
-                <span style={{ fontSize:12, color:t.text3, whiteSpace:"nowrap" }}>notes/s</span>
+                  onChange={e => setChordSpeed(Number(e.target.value))} style={{ flex:"1 1 80px", minWidth:0 }}/>
+                <span style={{ display:"inline-flex", alignItems:"center", gap:10 }}>
+                  <input type="text" inputMode="numeric" value={chordSpeedField}
+                    onChange={e => setChordSpeedField(e.target.value.replace(/[^0-9]/g, ""))}
+                    onBlur={commitChordSpeed}
+                    onKeyDown={e => e.key === "Enter" && e.currentTarget.blur()}
+                    style={{ ...inputStyle, width:46, textAlign:"center" }}/>
+                  <span style={{ fontSize:12, color:t.text3, whiteSpace:"nowrap" }}>notes/s</span>
+                </span>
               </div>
             )}
 
             {loopRow()}
             </div>
             {chordSel.size > 0 && (
-              <div style={{ marginLeft:"auto", alignSelf:"center" }}>
+              <div style={{ marginLeft:"auto", alignSelf:"flex-start" }}>
                 <ChordStaff noteIdxs={[...chordSel].sort((a, b) => a - b)} pedals={pedals} t={t} dark={darkMode} />
               </div>
             )}
