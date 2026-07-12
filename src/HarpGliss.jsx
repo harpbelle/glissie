@@ -3435,11 +3435,11 @@ export default function HarpGliss() {
 
             {loopRow()}
             </div>
-            {chordSel.size > 0 && (
-              <div style={{ marginLeft:"auto", alignSelf:"flex-start" }}>
-                <ChordStaff noteIdxs={[...chordSel].sort((a, b) => a - b)} pedals={pedals} t={t} dark={darkMode} />
-              </div>
-            )}
+            {/* Always rendered (empty staves when nothing is selected) so the
+                panel height and column widths never jump on first selection. */}
+            <div style={{ marginLeft:"auto", alignSelf:"flex-start" }}>
+              <ChordStaff noteIdxs={[...chordSel].sort((a, b) => a - b)} pedals={pedals} t={t} dark={darkMode} />
+            </div>
             </div>
           </>
         )}
