@@ -87,7 +87,7 @@ function ChordStaff({ noteIdxs, pedals, t, dark }) {
   // the staff never moves when high or low notes are added, and the permanent
   // headroom clears the treble clef's ascender (~31px above the G4 line).
   const topExt = 53, botExt = 7;
-  const padT = 8, padB = 8, W = 96;
+  const padT = 18, padB = 8, W = 96;
   const y = step => padT + (topExt - step) * u;
   const H = padT + (topExt - botExt) * u + padB;
 
