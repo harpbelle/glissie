@@ -2848,8 +2848,9 @@ export default function HarpGliss() {
           <button onClick={resetAll} style={resetAllArmed
             ? { ...btnRow(true), background:t.red, borderColor:t.red }
             : { ...btnRow(false), color:t.redTx2, borderColor:t.dgn }}>
-            {/* Reserve the wider of the two labels so the button never jumps */}
+            {/* Both labels occupy the same cell; button takes the wider one's width */}
             <span style={{ gridArea:"1/1", visibility:"hidden", fontWeight:600 }}>Reset all</span>
+            <span style={{ gridArea:"1/1", visibility:"hidden", fontWeight:600 }}>Confirm?</span>
             <span style={{ gridArea:"1/1", fontWeight:600 }}>
               {resetAllArmed ? "Confirm?" : "Reset all"}
             </span>
@@ -3048,9 +3049,11 @@ export default function HarpGliss() {
                             background: open ? t.accent : t.card,
                             color: open ? "white" : t.text,
                             cursor:"pointer", fontSize:12, fontWeight: open ? 600 : 400,
+                            display:"inline-grid",
                           }}
                         >
-                          {name}
+                          <span style={{ gridArea:"1/1", visibility:"hidden", fontWeight:600 }}>{name}</span>
+                          <span style={{ gridArea:"1/1", fontWeight: open ? 600 : 400 }}>{name}</span>
                         </button>
                       );
                     })}
