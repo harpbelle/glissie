@@ -2816,7 +2816,7 @@ export default function HarpGliss() {
 
       {/* Presets + resets */}
       <div style={{ marginBottom:12 }}>
-        <div style={{ display:"flex", gap: wide ? 5 : 8, flexWrap:"wrap", marginBottom: (showPresets || showSave) ? 8 : 0 }}>
+        <div style={{ display:"flex", gap: wide ? 5 : 8, flexWrap:"wrap", alignItems:"center", marginBottom: (showPresets || showSave) ? 8 : 0 }}>
           <button onClick={() => { setShowPresets(p => !p); setOpenCategory(null); }} style={btnRow(showPresets)}>
             <span style={{ gridArea:"1/1", visibility:"hidden", fontWeight:600 }}>Presets ▲</span>
             <span style={{ gridArea:"1/1", fontWeight: showPresets ? 600 : 400 }}>
@@ -3322,24 +3322,18 @@ export default function HarpGliss() {
                   const edge = `1.5px solid ${sel ? oc : t.bdr}`;
                   return (
                     <button key={i} disabled={greyed} onClick={() => toggleChordNote(i)} title={noteLabel(i, pedals)} style={{
-                      height:24, padding:0, borderRadius:5,
+                      height:24, padding:"0 1px", borderRadius:5,
                       cursor: greyed ? "default" : "pointer",
                       borderTop:edge, borderLeft:edge, borderRight:edge,
                       borderBottom:`3px solid ${oc}`,
                       background: sel ? oc : t.card3,
                       color: sel ? "white" : greyed ? t.text6 : t.text2,
-                      fontSize:14, fontWeight: sel ? 700 : 400,
+                      fontSize:12, fontWeight: sel ? 700 : 400,
                       fontFamily:"inherit",
                       display:"flex", alignItems:"center", justifyContent:"center",
                       boxShadow: isNow ? `0 0 0 2px ${t.accent3}` : "none",
-                      position:"relative",
                     }}>
-                      {s.letter}{accSymbol(pedals[s.letter])}
-                      <span style={{
-                        position:"absolute", top:1, right:2,
-                        fontSize:7.5, lineHeight:"8px", fontWeight:600,
-                        opacity: sel ? 0.8 : 0.45,
-                      }}>{s.oct}</span>
+                      <span style={{ fontSize:9, opacity: sel ? 0.85 : 0.5, marginRight:0.5 }}>{s.oct}</span>{s.letter}{accSymbol(pedals[s.letter])}
                     </button>
                   );
                 });
