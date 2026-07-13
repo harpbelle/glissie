@@ -154,7 +154,11 @@ function ChordStaff({ noteIdxs, pedals, t, dark }) {
     prevStep = n.step; prevShift = shift;
     return shift;
   }).reverse();
-  const headX = (shifts.some(Boolean) ? 77 : 68) + shiftR;
+  // Left-aligned anchoring: without seconds, noteheads sit exactly where a
+  // displaced-left note would (77 − headW), so the chord's left edge — and
+  // its ledger lines — never move when a second appears; only the main
+  // column steps right.
+  const headX = (shifts.some(Boolean) ? 77 : 77 - headW) + shiftR;
   const placed = notes.map((n, i) => ({ ...n, x: headX - (shifts[i] ? headOff : 0) }));
 
   // Ledger lines: per step, extend symmetrically (±8px) around each notehead
