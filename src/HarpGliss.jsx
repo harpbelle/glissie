@@ -251,8 +251,8 @@ function buildGlissSequence(glissStart, glissEnd) {
 //   2. Adjacent-finger stretch: each consecutive pair of *used* fingers has a
 //      maximum reach, calibrated at the instrument. The lower adjacent pairs
 //      (4-3, 3-2) manage a 7th regardless of hand size (a 6th is merely "a
-//      little uncomfortable"; a 7th is pushing it but allowed; +1 at span
-//      ≥ 12). Thumb-index scales with the hand: two intervals less than the
+//      little uncomfortable"; a 7th is pushing it but allowed; an octave only
+//      for span-13+ monster hands, if such hands exist). Thumb-index scales with the hand: two intervals less than the
 //      span setting — an octave at span 10, a 9th at span 11. Skipping a
 //      finger frees the hand further: 4-2 or 3-1 manage span − 2, and 4-1
 //      alone takes the whole span (4C + 3E with just fingers 4 and 1).
@@ -265,7 +265,7 @@ function pairMax(hi, lo, span) {              // hi, lo = finger numbers, hi > l
   if (d >= 3) return span - 1;                // 4-1: full hand
   if (d === 2) return span - 2;               // 4-2, 3-1: one finger skipped
   if (lo === 1) return span - 3;              // thumb-index: octave at span 10, 9th at 11
-  return (span >= 12 ? 7 : 6);                // 4-3, 3-2: a 7th (pushing it, but playable)
+  return span >= 13 ? 7 : 6;                  // 4-3, 3-2: a 7th; an octave for span-13+ monster hands
 }
 function handFeasible(notes, span) {
   const k = notes.length;
@@ -2810,7 +2810,7 @@ export default function HarpGliss() {
           <strong>Loop:</strong> When ticked (the default), playback repeats with the given gap between passes, settable from 1 to 20 seconds (each mode remembers its own; Scale/Arpeggio and Glissando default to 1&nbsp;s, Chord to 4&nbsp;s); untick it to play a single pass and stop. For the Both direction that means one full out-and-back pass. With Continuous set to Yes, a ticked Loop repeats seamlessly and the interval is ignored.<br/><br/>
           <strong>Continuous (Both direction):</strong> <em>Yes</em> ping-pongs seamlessly with no pause and neither turnaround note repeated; <em>No</em> plays one full out-and-back pass, then pauses for the Loop interval before repeating. Each mode remembers its own choice.<br/><br/>
           <strong>8-note limit:</strong> A harpist plays with four fingers of each hand (the little fingers are not used), so at most eight strings can be plucked simultaneously. A chord of more than eight notes must be broken (rolled or arpeggiated) on the real instrument. In Chord mode, ticking <em>Enforce: 8-note limit</em> greys out the remaining strings once eight are selected; untick it to select freely.<br/><br/>
-          <strong>Hand span limit:</strong> Available when the 8-note limit is enforced. Each hand holds at most four notes (fingers 4-3-2-1, thumb on the highest), which must fit within the given number of consecutive strings, counting both ends. So the default of 10 means the lowest and highest note in a hand are at most a 10th apart, e.g. 4C up to 3E (allowed 8–15). Within a hand, each pair of consecutive fingers used also has a stretch limit that's basically anatomy, regardless of hand size: 4-3 and 3-2 reach a 7th regardless of hand size (one more at spans of 12+), and thumb-index scales with the span — an octave at the default 10, while skipping a finger frees the hand to open much wider — 4-2 or 3-1 reach nearly the whole span, and 4-1 alone (say, on 4C and 3E) can take the full span. Hands are assigned invisibly: notes beyond one hand's reach go to the other, and any string that no legal two-hand arrangement could still include is greyed out.<br/><br/>
+          <strong>Hand span limit:</strong> Available when the 8-note limit is enforced. Each hand holds at most four notes (fingers 4-3-2-1, thumb on the highest), which must fit within the given number of consecutive strings, counting both ends. So the default of 10 means the lowest and highest note in a hand are at most a 10th apart, e.g. 4C up to 3E (allowed 8–15). Within a hand, each pair of consecutive fingers used also has a stretch limit that's basically anatomy, regardless of hand size: 4-3 and 3-2 reach a 7th regardless of hand size (an octave at spans of 13+), and thumb-index scales with the span — an octave at the default 10, while skipping a finger frees the hand to open much wider — 4-2 or 3-1 reach nearly the whole span, and 4-1 alone (say, on 4C and 3E) can take the full span. Hands are assigned invisibly: notes beyond one hand's reach go to the other, and any string that no legal two-hand arrangement could still include is greyed out.<br/><br/>
           <strong>Snap to root:</strong> When on, pedalling into a configuration that matches a known scale automatically moves the start (and end) notes to that scale's root. Turn it off to pedal around freely without the notes jumping. Choosing a preset from the menu always snaps, regardless of this setting.<br/><br/>
           <strong>Sound:</strong> Sampled concert harp from the Versilian Community Sample Library (VCSL, CC0).
         </div>
