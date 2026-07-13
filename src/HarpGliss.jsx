@@ -91,26 +91,18 @@ function ChordStaff({ noteIdxs, pedals, t, dark }) {
   const y = step => padT + (topExt - step) * u;
   const H = padT + (topExt - botExt) * u + padB;
 
-  // Notehead x, with seconds offset to the right.
-  const k = gap / 250, headW = 422 * k;   // Bravura whole-note width
-  const headX = 68, headOff = headW;
-  let prevStep = null, prevShift = false;
-  const placed = notes.map(n => {
-    const shift = prevStep !== null && n.step - prevStep === 1 && !prevShift;
-    prevStep = n.step; prevShift = shift;
-    return { ...n, x: headX + (shift ? headOff : 0) };
-  });
-
-  // Accidental layout per standard engraving practice (Gould, Behind Bars):
-  // work from the outermost notes inward (highest first, then lowest, then
-  // second-highest…), placing each accidental in the rightmost column where
-  // its glyph doesn't collide with one already there. Collision uses the real
-  // Bravura extents in step units (1 space = 2 steps): a sharp spans ±2.8
-  // steps around its note; a flat is asymmetric, −1.4 below to +3.5 above
-  // (its stem points up). Columns march leftward from the chord.
-  const accX = 58, accOff = 9, MAX_COLS = 4, CLEAR = 0.5;
+  // Accidental column assignment per standard engraving practice (Gould,
+  // Behind Bars): work from the outermost notes inward (highest first, then
+  // lowest, then second-highest…), placing each accidental in the rightmost
+  // column where its glyph doesn't collide with one already there. Collision
+  // uses the real Bravura extents in step units (1 space = 2 steps): a sharp
+  // spans ±2.8 steps around its note; a flat is asymmetric, −1.4 below to
+  // +3.5 above (its stem points up). Columns march leftward from the chord.
+  // Runs before x-positions are fixed, because the number of columns decides
+  // the horizontal layout below.
+  const accOff = 9, MAX_COLS = 4, CLEAR = 0.5;
   const EXTENT = { [-1]: [-1.4, 3.5], [1]: [-2.8, 2.8] };
-  const withAcc = placed.filter(n => n.acc);
+  const withAcc = notes.filter(n => n.acc);
   // Zigzag order: indices from both ends of the (ascending) list, top first.
   const order = [];
   for (let hi = withAcc.length - 1, lo = 0; hi >= lo; hi--, lo++) {
@@ -118,7 +110,7 @@ function ChordStaff({ noteIdxs, pedals, t, dark }) {
     if (lo < hi) order.push(withAcc[lo]);
   }
   const cols = [];                               // per column: occupied [lo,hi] spans
-  const accs = [];
+  const accCols = [];                            // { step, acc, col }
   order.forEach(n => {
     const [dLo, dHi] = EXTENT[n.acc];
     const span = [n.step + dLo - CLEAR, n.step + dHi + CLEAR];
@@ -137,8 +129,29 @@ function ChordStaff({ noteIdxs, pedals, t, dark }) {
       }
     }
     cols[col].push(span);
-    accs.push({ step: n.step, acc: n.acc, x: accX - col * accOff });
+    accCols.push({ step: n.step, acc: n.acc, col });
   });
+
+  // Horizontal layout. Compact placement by default; when the accidentals
+  // need all four columns, the leftmost would crowd the bass clef, so the
+  // whole note+accidental assembly slides right just for those chords.
+  const shiftR = cols.length >= 4 ? 8 : 0;
+  const accX = 52 + shiftR;
+  const accs = accCols.map(a => ({ ...a, x: accX - a.col * accOff }));
+
+  // Notehead placement. Seconds follow standard engraving (Gould): the main
+  // column keeps the majority of the chord — scanning from the top, the upper
+  // note of each second stays in the column and the lower note is displaced
+  // one notehead-width to the LEFT (stem-down arrangement), so unpaired chord
+  // notes align with the upper note of the pair.
+  const k = gap / 250, headW = 422 * k;   // Bravura whole-note width
+  const headX = 77 + shiftR, headOff = headW;
+  let prevStep = null, prevShift = false;
+  const placed = [...notes].reverse().map(n => {
+    const shift = prevStep !== null && prevStep - n.step === 1 && !prevShift;
+    prevStep = n.step; prevShift = shift;
+    return { ...n, x: headX - (shift ? headOff : 0) };
+  }).reverse();
 
   // Ledger lines: per step, extend symmetrically (±8px) around each notehead
   // that needs it, widening to cover offset seconds when both columns occur.
