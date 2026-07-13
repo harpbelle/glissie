@@ -143,15 +143,19 @@ function ChordStaff({ noteIdxs, pedals, t, dark }) {
   // column keeps the majority of the chord — scanning from the top, the upper
   // note of each second stays in the column and the lower note is displaced
   // one notehead-width to the LEFT (stem-down arrangement), so unpaired chord
-  // notes align with the upper note of the pair.
+  // notes align with the upper note of the pair. The scan runs first (it's
+  // x-independent); the column then sits close to the accidentals and only
+  // moves right when a displaced note actually needs the room.
   const k = gap / 250, headW = 422 * k;   // Bravura whole-note width
-  const headX = 77 + shiftR, headOff = headW;
+  const headOff = headW;
   let prevStep = null, prevShift = false;
-  const placed = [...notes].reverse().map(n => {
+  const shifts = [...notes].reverse().map(n => {
     const shift = prevStep !== null && prevStep - n.step === 1 && !prevShift;
     prevStep = n.step; prevShift = shift;
-    return { ...n, x: headX - (shift ? headOff : 0) };
+    return shift;
   }).reverse();
+  const headX = (shifts.some(Boolean) ? 77 : 68) + shiftR;
+  const placed = notes.map((n, i) => ({ ...n, x: headX - (shifts[i] ? headOff : 0) }));
 
   // Ledger lines: per step, extend symmetrically (±8px) around each notehead
   // that needs it, widening to cover offset seconds when both columns occur.
