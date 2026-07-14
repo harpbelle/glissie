@@ -271,10 +271,9 @@ function buildGlissSequence(glissStart, glissEnd) {
 //      so index difference ≤ span−1).
 //   2. Adjacent-finger stretch: each consecutive pair of *used* fingers has a
 //      maximum reach, calibrated at the instrument. The lower adjacent pairs
-//      (4-3, 3-2) manage a 6th at span 8–9, a 7th at span 10+ (a 6th is
-//      merely "a little uncomfortable" there; a 7th is pushing it but
-//      allowed), and an octave only for span-13+ monster hands, if such
-//      hands exist. Thumb-index scales with the hand: two intervals less than the
+//      (4-3, 3-2) reach half the hand span: a 5th at span 8–9, a 6th at
+//      10–11, a 7th at 12–13, and an octave only for span-14+ monster hands,
+//      if such hands exist. Thumb-index scales with the hand: two intervals less than the
 //      span setting — an octave at span 10, a 9th at span 11. Skipping a
 //      finger frees the hand further: 4-2 or 3-1 manage span − 2, and 4-1
 //      alone takes the whole span (4C + 3E with just fingers 4 and 1).
@@ -287,7 +286,7 @@ function pairMax(hi, lo, span) {              // hi, lo = finger numbers, hi > l
   if (d >= 3) return span - 1;                // 4-1: full hand
   if (d === 2) return span - 2;               // 4-2, 3-1: one finger skipped
   if (lo === 1) return span - 3;              // thumb-index: octave at span 10, 9th at 11
-  return span >= 13 ? 7 : span >= 10 ? 6 : 5; // 4-3, 3-2: a 6th at span 8–9, a 7th at 10+, an octave at 13+
+  return Math.floor(span / 2);                // 4-3, 3-2: half the span — 5th at 8–9, 6th at 10–11, 7th at 12–13, octave at 14–15
 }
 function handFeasible(notes, span) {
   const k = notes.length;
