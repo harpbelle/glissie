@@ -2708,6 +2708,9 @@ export default function HarpGliss() {
   const inputStyle = { padding:"4px 8px", borderRadius:4, border:`1px solid ${t.bdr2}`, fontSize:13, background:t.card };
   const btn = (active) => ({
     padding:"5px 14px", borderRadius:4,
+    // Explicit line-height: the ▼/▲ in "Presets" come from a fallback font on
+    // Android whose taller metrics otherwise inflate that one button's height.
+    lineHeight:"19px",
     border:"1.5px solid " + (active ? t.accent : t.bdr2),
     background: active ? t.accent : t.card2,
     color: active ? "white" : t.text,
