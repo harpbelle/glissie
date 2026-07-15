@@ -7,6 +7,7 @@
 - **Pedal board** D C B for the left foot, E F G A for the right with flat (up) / natural (middle) / sharp (down) positions. Click to bounce a pedal through its positions, or drag it.
 - **Scale/Arpeggio mode** plays toggleable notes from any start note for a selectable number of octaves.
 - **Chord mode** plays selected notes from a 47-note grid at once. Users may configure to play block chords or broken / arpeggiated chords, enforce 8-note limit and hand span limit at their discretion.
+- **Live mode** plays notes as they are clicked/tapped on.
 - **Glissando mode** sweeps between two notes at 1-40 notes per second, ascending, descending, or both.
 - **Live pedalling**: move a pedal mid-glissando and hear the pitch change immediately, just like the real instrument.
 - **27 preset scale & chord types** (majors, minors, hexatonics, pentatonics, the Japanese scales, the 7th chords, whole tone, and more), each computed for every root that is gliss-possible on a pedal harp; the configurations are derived by exhaustive search, so the app doubles as a reference for what the instrument can and can't gliss.

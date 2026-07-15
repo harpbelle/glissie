@@ -1565,6 +1565,19 @@ export default function HarpGliss() {
   const [glissEnd, setGlissEnd] = useState(IDX["2C"]);
   // Chord mode: which strings are selected (indices into STRINGS), empty by default.
   const [chordSel, setChordSel] = useState(() => new Set());
+  // Chord / Live: when liveMode is on the grid becomes a playable instrument —
+  // tapping a string sounds it immediately (multi-touch via per-button
+  // pointerdown), and none of the chord-building machinery (selection, limits,
+  // break/loop/direction, Play button) applies. chordSel is left untouched in
+  // the background and comes back intact when Live is toggled off.
+  const [liveMode, setLiveMode] = useState(false);
+  // liveRing: struck strings still sounding — drives the staff preview, each
+  // note expiring after the chord-mode Sostenuto (re-strike refreshes it).
+  // liveFlash: brief (~0.2 s) per-button press feedback so buttons visibly
+  // "bounce back" and never look stuck down.
+  const [liveRing, setLiveRing] = useState(() => new Set());
+  const [liveFlash, setLiveFlash] = useState(() => new Set());
+  const liveTimersRef = useRef({ ring: new Map(), flash: new Map() });
   const [breakChord, setBreakChord] = useState(false); // off = block chord (all at once)
   const [enforce8, setEnforce8] = useState(false);     // cap selection at 8 notes (two hands)
   const [handSpanOn, setHandSpanOn] = useState(false); // per-hand span rule (needs enforce8)
@@ -2262,6 +2275,43 @@ export default function HarpGliss() {
     });
   }
 
+  // ── Live play (Chord / Live) ──
+  // Sound one string right now (pointerdown is a user gesture, so audio is
+  // unlocked), flash its button for FLASH_MS, and keep it on the staff for as
+  // long as it rings — the chord-mode Sostenuto, read live from tailRef so the
+  // Advanced-settings slider governs both the sound and the visual bleed.
+  const LIVE_FLASH_MS = 200;
+  function liveStrike(i) {
+    soundString(i);
+    const T = liveTimersRef.current;
+    setLiveFlash(prev => { const n = new Set(prev); n.add(i); return n; });
+    if (T.flash.has(i)) clearTimeout(T.flash.get(i));
+    T.flash.set(i, setTimeout(() => {
+      T.flash.delete(i);
+      setLiveFlash(prev => { const n = new Set(prev); n.delete(i); return n; });
+    }, LIVE_FLASH_MS));
+    const ringMs = Math.max(180, tailRef.current * 1000);
+    setLiveRing(prev => { const n = new Set(prev); n.add(i); return n; });
+    if (T.ring.has(i)) clearTimeout(T.ring.get(i));
+    T.ring.set(i, setTimeout(() => {
+      T.ring.delete(i);
+      setLiveRing(prev => { const n = new Set(prev); n.delete(i); return n; });
+    }, ringMs));
+  }
+  // Switch between Chord and Live: stop any scheduled playback and clear all
+  // live timers/visuals so neither sub-mode inherits stale state.
+  function setLive(on) {
+    stop();
+    const T = liveTimersRef.current;
+    for (const id of T.ring.values()) clearTimeout(id);
+    for (const id of T.flash.values()) clearTimeout(id);
+    T.ring.clear();
+    T.flash.clear();
+    setLiveRing(new Set());
+    setLiveFlash(new Set());
+    setLiveMode(on);
+  }
+
   // ── Tuning ──
   function commitTuning() {
     let v = parseInt(tuningField, 10);
@@ -2325,6 +2375,7 @@ export default function HarpGliss() {
     setGlissEnd(IDX["2C"]);
     setSpeed(15);
     setChordSel(new Set());
+    setLive(false);
     setBreakChord(false);
     setEnforce8(false);
     setHandSpanOn(false);
@@ -2671,9 +2722,14 @@ export default function HarpGliss() {
     </>
   );
   // Compact variant for the Presets…Reset-all toolbar so it fits one line on desktop; mobile keeps roomy padding.
-  const btnRow = (active) => ({ ...btn(active), padding: wide ? "5px 9px" : "5px 14px" });
+  // Compact padding matches wide (9px sides): six preset/reset buttons must
+  // share one ~496px line, and 14px sides wrapped "Reset all" onto its own row.
+  const btnRow = (active) => ({ ...btn(active), padding: "5px 9px" });
   const seg = (active) => ({
-    padding: wide ? "6px 14px" : "6px 8px", border:"none", whiteSpace:"nowrap",
+    // Horizontal padding trimmed (14→10 on wide) so the mode row — grown by
+    // the "Chord / Live" label — still shares one line with Asc/Desc/Both on
+    // a maximized desktop window. Applies to every seg button for consistency.
+    padding: wide ? "6px 10px" : "6px 8px", border:"none", whiteSpace:"nowrap",
     background: active ? t.accent3 : t.card,
     color: active ? (dk?"#1a1a2e":"white") : t.text,
     cursor:"pointer", fontSize:13, fontWeight: active ? 600 : 400,
@@ -2795,23 +2851,6 @@ export default function HarpGliss() {
           </button>
         </div>
       </div>
-      <div style={{ fontSize:12, lineHeight:"18px", color:t.text3, marginBottom:12, minHeight:18 }}>
-        {presetMatches.length === 0
-          ? "Custom pedal configuration"
-          : <div style={{ display:"flex", alignItems:"baseline", gap:4 }}>
-              <div ref={detRef} style={{
-                flex:1, overflow:"hidden",
-                ...(detExpand ? {} : { whiteSpace:"nowrap", textOverflow:"ellipsis" }),
-              }}>
-                Detected: <strong>{presetMatches.join(" · ")}</strong>
-              </div>
-              {(detOverflow || detExpand) && <button onClick={() => setDetExpand(x => !x)} style={{
-                background:"none", border:"none", cursor:"pointer", padding:0,
-                fontSize:11, color:t.text5, flexShrink:0,
-              }}>{detExpand ? "▲" : "▼"}</button>}
-            </div>}
-      </div>
-
       {/* Help */}
       {showHelp && (
         <div style={{ background:t.help, border:`1px solid ${t.helpBdr}`, borderRadius:6, padding:12, marginBottom:12, fontSize:14, lineHeight:1.6 }}>
@@ -2827,7 +2866,7 @@ export default function HarpGliss() {
           <strong>Out-of-order configurations:</strong> A glissando sweeps the strings in playing order, so its pitches should climb steadily. A few enharmonic spellings break this: a sharpened E♯ sounds above the following F♭, or a B♯ above the next C♭ at the octave change, so the run dips mid-sweep. The default for each scale always avoids this. Configurations that don't are still kept; the effect can be striking, but are listed last among a root's alternates and marked ⚠ with the pitch class that falls out of order, e.g. ⚠E♯ (or ⚠E♯,B♯ when both octave breaks invert).<br/><br/>
           <strong>7C and 7D:</strong> On a real concert grand these two strings are not connected to the pedal mechanism and must be pre-tuned by hand. In this app they follow the pedals for convenience.<br/><br/>
           <strong>Saving &amp; sharing:</strong> Saved configurations are stored on your own device and persist between visits; except if you choose "Reset all" or clear your browser data, which removes them. To save a copy on your local disk or to share with other users, use Export. Each appears under "My configurations," where you can rename (✎) or delete (🗑) it; saving a name you've already used asks whether to overwrite. <strong>Export</strong> lets you tick which configurations to download as a small file you can back up or send to another user; <strong>Import</strong> loads configurations from such a file. On import, identical configurations you already have are skipped, and one whose name you already use for a <em>different</em> setting is automatically renamed.<br/><br/>
-          <strong>Modes:</strong> <em>Scale / Arpeggio</em> plays a run from your start note. The eight buttons are the scale degrees (1–7 plus the octave, 1*): with all lit it's a full scale, and deselecting some makes an arpeggio; for example, leave 1, 3, 5 and 1* for a triad. The <em>Range</em> dropdown sets how many octaves it spans (the choices adapt to how much room the start note leaves before the edge of the harp), and your chosen degree pattern repeats in each octave. <em>Speed</em> sets how many notes play per second. <em>Chord</em> lets you pick any set of strings on the 47-string grid (colour-coded by octave); by default they sound together as a block chord, repeating after the Loop interval, and <em>Break chord</em> arpeggiates them instead, following the direction buttons and its own speed (again pausing the Loop interval between passes, unless Continuous is on). <em>Glissando</em> sweeps every string between two notes.<br/><br/>
+          <strong>Modes:</strong> <em>Scale / Arpeggio</em> plays a run from your start note. The eight buttons are the scale degrees (1–7 plus the octave, 1*): with all lit it's a full scale, and deselecting some makes an arpeggio; for example, leave 1, 3, 5 and 1* for a triad. The <em>Range</em> dropdown sets how many octaves it spans (the choices adapt to how much room the start note leaves before the edge of the harp), and your chosen degree pattern repeats in each octave. <em>Speed</em> sets how many notes play per second. <em>Chord / Live</em> displays 47 strings as a grid. In Chord mode, notes are selected, then can be either played as a block chord by default, or arpeggiated by checking <em>Break chord</em>, following the direction buttons and its own speed. Switching the panel to Live turns the grid into a playable interface: click/tap notes to play them immediately. Multiple simultaneous taps work for multi-touch screens. <em>Glissando</em> sweeps every string between two notes.<br/><br/>
           <strong>Loop:</strong> When ticked (the default), playback repeats with the given gap between passes, settable from 1 to 20 seconds (each mode remembers its own; Scale/Arpeggio and Glissando default to 1&nbsp;s, Chord to 4&nbsp;s); untick it to play a single pass and stop. For the Both direction that means one full out-and-back pass. With Continuous set to Yes, a ticked Loop repeats seamlessly and the interval is ignored.<br/><br/>
           <strong>Continuous (Both direction):</strong> <em>Yes</em> ping-pongs seamlessly with no pause and neither turnaround note repeated; <em>No</em> plays one full out-and-back pass, then pauses for the Loop interval before repeating. Each mode remembers its own choice.<br/><br/>
           <strong>8-note limit:</strong> A harpist plays with four fingers of each hand (the little fingers are not used), so at most eight strings can be plucked simultaneously. A chord of more than eight notes must be broken (rolled or arpeggiated) on the real instrument. In Chord mode, ticking <em>Enforce: 8-note limit</em> greys out the remaining strings once eight are selected; untick it to select freely.<br/><br/>
@@ -2837,40 +2876,20 @@ export default function HarpGliss() {
         </div>
       )}
 
-      {/* Responsive body: two columns on wide screens, single column on mobile */}
-      <div style={{ display:"flex", flexDirection: wide ? "row" : "column", gap: wide ? 22 : 0, alignItems:"flex-start" }}>
-      <div style={{ flex: wide ? "1 1 0" : "0 1 auto", minWidth:0, width: wide ? "auto" : "100%" }}>
-
-      {/* Pedal diagram */}
-      <div style={{ background:t.card, border:`1px solid ${t.bdr}`, borderRadius:8, padding:"16px 12px", marginBottom:12, boxShadow:t.shadow }}>
-        <div style={{ fontSize:11, color:t.text6, textAlign:"center", marginBottom:8, letterSpacing:1, textTransform:"uppercase" }}>
-          Pedal configuration
-        </div>
-        <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"center" }}>
-          <div style={{ display:"flex", gap:14, paddingRight:16 }}>
-            {["D","C","B"].map(L => <Pedal key={L} L={L} />)}
-          </div>
-          <div style={{ width:2, height:110, background:t.text6, marginTop:4, flexShrink:0 }}/>
-          <div style={{ display:"flex", gap:14, paddingLeft:16 }}>
-            {["E","F","G","A"].map(L => <Pedal key={L} L={L} />)}
-          </div>
-        </div>
-        <div style={{ display:"flex", justifyContent:"center", gap:24, marginTop:8 }}>
-          <span style={{ fontSize:10, color:t.text7 }}>← left foot</span>
-          <span style={{ fontSize:10, color:t.text7 }}>right foot →</span>
-        </div>
-      </div>
-
       {/* Presets + resets */}
       <div style={{ marginBottom:12 }}>
-        <div style={{ display:"flex", gap: wide ? 5 : 8, flexWrap:"wrap", alignItems:"center", marginBottom: (showPresets || showSave) ? 8 : 0 }}>
+        {/* Two mirrored columns matching the body below (same flex and gap),
+            so the mode buttons left-align with the play panel on wide screens.
+            Compact stacks them: presets row first, mode+direction second. */}
+        <div style={{ display:"flex", flexDirection: wide ? "row" : "column", gap: wide ? 22 : 8, alignItems:"flex-start", marginBottom: (showPresets || showSave) ? 8 : 0 }}>
+        <div style={{ flex: wide ? "1 1 0" : "0 1 auto", minWidth:0, width: wide ? "auto" : "100%", display:"flex", gap: wide ? 5 : 6, flexWrap:"wrap", alignItems:"center" }}>
           <button onClick={() => { setShowPresets(p => !p); setOpenCategory(null); }} style={btnRow(showPresets)}>
             <span style={{ gridArea:"1/1", visibility:"hidden", fontWeight:600 }}>Presets ▲</span>
             <span style={{ gridArea:"1/1", fontWeight: showPresets ? 600 : 400 }}>
               {`Presets ${showPresets ? "▲" : "▼"}`}
             </span>
           </button>
-          <button onClick={() => setShowSave(s => !s)} style={btnRow(showSave)}>{btnLabel("Save current", showSave)}</button>
+          <button onClick={() => setShowSave(s => !s)} style={btnRow(showSave)}>{btnLabel("Save", showSave)}</button>
           <button
             onClick={() => {
               if (userPresets.length === 0) { setImportMsg("You have no saved configurations to export yet."); return; }
@@ -2902,6 +2921,26 @@ export default function HarpGliss() {
               {resetAllArmed ? "Confirm?" : "Reset all"}
             </span>
           </button>
+        </div>
+        <div style={{ flex: wide ? "1 1 0" : "0 1 auto", minWidth:0, width: wide ? "auto" : "100%", display:"flex", gap:6, flexWrap:"wrap", alignItems:"center" }}>
+        <div style={{ display:"flex", border:`1.5px solid ${t.bdr2}`, borderRadius:6, overflow:"hidden" }}>
+          <button onClick={() => { setMode("scale"); stop(); }} style={seg(mode==="scale")}>{segLabel("Scale / Arpeggio", mode==="scale")}</button>
+          <button onClick={() => { setMode("chord"); stop(); }} style={seg(mode==="chord")}>{segLabel("Chord / Live", mode==="chord")}</button>
+          <button onClick={() => { setMode("gliss"); stop(); }} style={seg(mode==="gliss")}>{segLabel("Glissando", mode==="gliss")}</button>
+        </div>
+        {/* Direction is ignored (and dimmed) for an unbroken chord and in Live play. */}
+        {(() => {
+          const dirOff = mode === "chord" && (liveMode || !breakChord);
+          const dirSeg = (active) => ({ ...seg(active), ...(dirOff ? { opacity:0.4, cursor:"default" } : {}) });
+          return (
+            <div style={{ display:"flex", border:`1.5px solid ${t.bdr2}`, borderRadius:6, overflow:"hidden", opacity: dirOff ? 0.75 : 1 }}>
+              <button disabled={dirOff} onClick={() => { setDirection("asc"); stop(); }} style={dirSeg(direction==="asc")}>{segLabel("↑ Asc.", direction==="asc")}</button>
+              <button disabled={dirOff} onClick={() => { setDirection("desc"); stop(); }} style={dirSeg(direction==="desc")}>{segLabel("↓ Desc.", direction==="desc")}</button>
+              <button disabled={dirOff} onClick={() => { setDirection("both"); stop(); }} style={dirSeg(direction==="both")}>{segLabel("⇅ Both", direction==="both")}</button>
+            </div>
+          );
+        })()}
+        </div>
         </div>
 
         {showSave && (
@@ -2974,9 +3013,13 @@ export default function HarpGliss() {
                 {openCategory === "__user" ? "▾" : "▸"} My configurations ({userPresets.length})
               </button>
               {openCategory === "__user" && (
-                <div style={{ display:"flex", flexDirection:"column", gap:6, padding:"6px 10px" }}>
+                <div style={{ display:"flex", flexDirection:"column", gap:6, padding:"6px 10px",
+                  // A long saved-configuration list scrolls within itself
+                  // instead of shoving the pedal card and play panel far
+                  // down the page.
+                  maxHeight:240, overflowY:"auto" }}>
                   {userPresets.length === 0 && (
-                    <span style={{ fontSize:12, color:t.text6 }}>Nothing saved yet; use "Save current" after setting a custom configuration.</span>
+                    <span style={{ fontSize:12, color:t.text6 }}>Nothing saved yet; use "Save" after setting a custom configuration.</span>
                   )}
                   {exportMode && userPresets.length > 0 && (
                     <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap", paddingBottom:4 }}>
@@ -3160,29 +3203,48 @@ export default function HarpGliss() {
         )}
       </div>
 
-      </div>{/* end config column */}
+      {/* Responsive body: two columns on wide screens, single column on mobile */}
+      <div style={{ display:"flex", flexDirection: wide ? "row" : "column", gap: wide ? 22 : 0, alignItems:"flex-start" }}>
       <div style={{ flex: wide ? "1 1 0" : "0 1 auto", minWidth:0, width: wide ? "auto" : "100%" }}>
 
-      {/* Mode + direction toggles */}
-      <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:12 }}>
-        <div style={{ display:"flex", border:`1.5px solid ${t.bdr2}`, borderRadius:6, overflow:"hidden" }}>
-          <button onClick={() => { setMode("scale"); stop(); }} style={seg(mode==="scale")}>{segLabel("Scale / Arpeggio", mode==="scale")}</button>
-          <button onClick={() => { setMode("chord"); stop(); }} style={seg(mode==="chord")}>{segLabel("Chord", mode==="chord")}</button>
-          <button onClick={() => { setMode("gliss"); stop(); }} style={seg(mode==="gliss")}>{segLabel("Glissando", mode==="gliss")}</button>
-        </div>
-        {/* Direction is ignored (and dimmed) for an unbroken chord. */}
-        {(() => {
-          const dirOff = mode === "chord" && !breakChord;
-          const dirSeg = (active) => ({ ...seg(active), ...(dirOff ? { opacity:0.4, cursor:"default" } : {}) });
-          return (
-            <div style={{ display:"flex", border:`1.5px solid ${t.bdr2}`, borderRadius:6, overflow:"hidden", opacity: dirOff ? 0.75 : 1 }}>
-              <button disabled={dirOff} onClick={() => { setDirection("asc"); stop(); }} style={dirSeg(direction==="asc")}>{segLabel("↑ Asc.", direction==="asc")}</button>
-              <button disabled={dirOff} onClick={() => { setDirection("desc"); stop(); }} style={dirSeg(direction==="desc")}>{segLabel("↓ Desc.", direction==="desc")}</button>
-              <button disabled={dirOff} onClick={() => { setDirection("both"); stop(); }} style={dirSeg(direction==="both")}>{segLabel("⇅ Both", direction==="both")}</button>
-            </div>
-          );
-        })()}
+      <div style={{ fontSize:12, lineHeight:"18px", color:t.text3, marginBottom:12, minHeight:18 }}>
+        {presetMatches.length === 0
+          ? "Custom pedal configuration"
+          : <div style={{ display:"flex", alignItems:"baseline", gap:4 }}>
+              <div ref={detRef} style={{
+                flex:1, overflow:"hidden",
+                ...(detExpand ? {} : { whiteSpace:"nowrap", textOverflow:"ellipsis" }),
+              }}>
+                Detected: <strong>{presetMatches.join(" · ")}</strong>
+              </div>
+              {(detOverflow || detExpand) && <button onClick={() => setDetExpand(x => !x)} style={{
+                background:"none", border:"none", cursor:"pointer", padding:0,
+                fontSize:11, color:t.text5, flexShrink:0,
+              }}>{detExpand ? "▲" : "▼"}</button>}
+            </div>}
       </div>
+      {/* Pedal diagram */}
+      <div style={{ background:t.card, border:`1px solid ${t.bdr}`, borderRadius:8, padding:"10px 12px", marginBottom:12, boxShadow:t.shadow }}>
+        <div style={{ fontSize:11, color:t.text6, textAlign:"center", marginBottom:8, letterSpacing:1, textTransform:"uppercase" }}>
+          Pedal configuration
+        </div>
+        <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"center" }}>
+          <div style={{ display:"flex", gap:14, paddingRight:16 }}>
+            {["D","C","B"].map(L => <Pedal key={L} L={L} />)}
+          </div>
+          <div style={{ width:2, height:110, background:t.text6, marginTop:4, flexShrink:0 }}/>
+          <div style={{ display:"flex", gap:14, paddingLeft:16 }}>
+            {["E","F","G","A"].map(L => <Pedal key={L} L={L} />)}
+          </div>
+        </div>
+        <div style={{ display:"flex", justifyContent:"center", gap:24, marginTop:8 }}>
+          <span style={{ fontSize:10, color:t.text7 }}>← left foot</span>
+          <span style={{ fontSize:10, color:t.text7 }}>right foot →</span>
+        </div>
+      </div>
+
+      </div>{/* end config column */}
+      <div style={{ flex: wide ? "1 1 0" : "0 1 auto", minWidth:0, width: wide ? "auto" : "100%" }}>
 
       {/* Mode controls */}
       <div style={{ background:t.card, border:`1px solid ${t.bdr}`, borderRadius:8, padding:14, marginBottom:12 }}>
@@ -3335,6 +3397,20 @@ export default function HarpGliss() {
 
         {mode === "chord" && (
           <>
+            {/* Chord | Live toggle. Chord = build a selection and use Play;
+                Live = the grid itself is the instrument (tap to sound, with
+                multi-touch). Switching either way stops playback and clears
+                the live ring/flash state; chordSel survives untouched. */}
+            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10, flexWrap:"wrap" }}>
+              <div style={{ display:"flex", border:`1.5px solid ${t.bdr2}`, borderRadius:6, overflow:"hidden" }}>
+                <button onClick={() => setLive(false)} style={seg(!liveMode)}>{segLabel("Chord", !liveMode)}</button>
+                <button onClick={() => setLive(true)} style={seg(liveMode)}>{segLabel("Live", liveMode)}</button>
+              </div>
+              <span style={{ fontSize:12, color:t.text5 }}>
+                {liveMode ? "Click/tap the notes to play them" : "Select notes, then press Play"}
+              </span>
+            </div>
+
             {/* Octave legend: colour codes the octave number of each button below */}
             <div style={{ display:"flex", alignItems:"center", gap:5, marginBottom:8, flexWrap:"wrap" }}>
               <span style={{ fontSize:12, color:t.text3 }}>Octave:</span>
@@ -3357,30 +3433,50 @@ export default function HarpGliss() {
               {[6,5,4,3,2,1,0].flatMap(r => {
                 const cells = rng(r * 7, Math.min(r * 7 + 6, 46)).map(i => {
                   const s = STRINGS[i];
-                  const sel = chordSel.has(i);
+                  // Live: selection styling is suppressed (chordSel persists
+                  // silently in the background) and lit = a brief press flash.
+                  const sel = !liveMode && chordSel.has(i);
+                  const flash = liveMode && liveFlash.has(i);
+                  const lit = sel || flash;
                   // Unselectable while the limits (8-note cap / hand span) would
-                  // be broken by adding this note.
-                  const greyed = !sel && !chordAddOK(chordSel, i);
+                  // be broken by adding this note. Limits govern chord-building
+                  // only, so nothing is ever greyed in Live.
+                  const greyed = !liveMode && !sel && !chordAddOK(chordSel, i);
                   const isNow = playing && currentIdx === i;
                   const oc = OCT_COLORS[s.oct];
                   // Longhand borders only: mixing the `border` shorthand with a
                   // `borderBottom` longhand makes React drop the accent bar when
                   // the shorthand changes on select/deselect.
-                  const edge = `1.5px solid ${sel ? oc : t.bdr}`;
+                  const edge = `1.5px solid ${lit ? oc : t.bdr}`;
                   return (
-                    <button key={i} disabled={greyed} onClick={() => toggleChordNote(i)} title={noteLabel(i, pedals)} style={{
+                    <button key={i} disabled={greyed} title={noteLabel(i, pedals)}
+                      // Live uses pointerdown so each finger in a multi-touch
+                      // strum sounds its own string the instant it lands;
+                      // Chord keeps plain click-to-toggle.
+                      onClick={liveMode ? undefined : () => toggleChordNote(i)}
+                      onPointerDown={liveMode ? (e) => {
+                        // Touches report button 0; only filter true mouse
+                        // secondary buttons so right-click doesn't pluck.
+                        if (e.pointerType === "mouse" && e.button !== 0) return;
+                        liveStrike(i);
+                      } : undefined}
+                      style={{
                       height:24, padding:"0 1px", borderRadius:5,
                       cursor: greyed ? "default" : "pointer",
                       borderTop:edge, borderLeft:edge, borderRight:edge,
                       borderBottom:`3px solid ${oc}`,
-                      background: sel ? oc : t.card3,
-                      color: sel ? "white" : greyed ? t.text6 : t.text2,
-                      fontSize:12, fontWeight: sel ? 700 : 400,
+                      background: lit ? oc : t.card3,
+                      color: lit ? "white" : greyed ? t.text6 : t.text2,
+                      fontSize:12, fontWeight: lit ? 700 : 400,
                       fontFamily:"inherit",
                       display:"flex", alignItems:"center", justifyContent:"center",
                       boxShadow: isNow ? `0 0 0 2px ${t.accent3}` : "none",
+                      // Stops Android treating a strum across buttons as a
+                      // scroll/zoom gesture; normal scrolling returns when
+                      // Live is off.
+                      touchAction: liveMode ? "none" : "auto",
                     }}>
-                      <span style={{ fontSize:9, opacity: sel ? 0.85 : 0.5, marginRight:0.5 }}>{s.oct}</span>{s.letter}{accSymbol(pedals[s.letter])}
+                      <span style={{ fontSize:9, opacity: lit ? 0.85 : 0.5, marginRight:0.5 }}>{s.oct}</span>{s.letter}{accSymbol(pedals[s.letter])}
                     </button>
                   );
                 });
@@ -3393,7 +3489,10 @@ export default function HarpGliss() {
                 preview (right-aligned; wraps below on narrow screens). The
                 staff only renders once at least one string is selected. */}
             <div style={{ display:"flex", gap:10, alignItems:"flex-start", flexWrap:"wrap" }}>
-            <div style={{ flex:"1 1 170px", minWidth:0 }}>
+            {/* The whole chord-building column (count/Clear, limits, break
+                chord, loop) is hidden in Live — none of it applies when the
+                grid is the instrument. Only the staff remains. */}
+            {!liveMode && <div style={{ flex:"1 1 170px", minWidth:0 }}>
             <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:10 }}>
               {/* Fixed min-width + tabular digits so the Clear button never
                   shifts as the count (and singular/plural) changes. */}
@@ -3478,11 +3577,14 @@ export default function HarpGliss() {
             )}
 
             {loopRow()}
-            </div>
+            </div>}
             {/* Always rendered (empty staves when nothing is selected) so the
-                panel height and column widths never jump on first selection. */}
+                panel height and column widths never jump on first selection.
+                Live feeds it the still-ringing strikes instead of the built
+                chord: notes bleed on the staff for the Sostenuto length, each
+                expiring independently. */}
             <div style={{ marginLeft:"auto", alignSelf:"flex-start" }}>
-              <ChordStaff noteIdxs={[...chordSel].sort((a, b) => a - b)} pedals={pedals} t={t} dark={darkMode} />
+              <ChordStaff noteIdxs={[...(liveMode ? liveRing : chordSel)].sort((a, b) => a - b)} pedals={pedals} t={t} dark={darkMode} />
             </div>
             </div>
           </>
@@ -3525,7 +3627,7 @@ export default function HarpGliss() {
           const cur = soundSettings[mode];
           const isG = mode === "gliss";
           const mvMax = mode === "chord" ? 94 : 70;
-          const modeName = mode === "gliss" ? "Glissando" : mode === "chord" ? "Chord" : "Scale/Arpeggio";
+          const modeName = mode === "gliss" ? "Glissando" : mode === "chord" ? "Chord / Live" : "Scale/Arpeggio";
           return (
             <div style={{ background:t.ylwLt, border:`1px solid ${t.ylwBdr3}`, borderRadius:6, padding:12, marginTop:8 }}>
               <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4 }}>
@@ -3576,7 +3678,10 @@ export default function HarpGliss() {
       {(() => {
         const noChordNotes = mode === "chord" && chordSel.size === 0 && !playing;
         const noScaleNotes = mode === "scale" && !arpMask.some(Boolean) && !playing;
-        const playDisabled = noChordNotes || noScaleNotes;
+        // Live play: the grid itself is the instrument, so scheduled playback
+        // is irrelevant (setLive already stopped anything running).
+        const liveOn = mode === "chord" && liveMode;
+        const playDisabled = noChordNotes || noScaleNotes || liveOn;
         return (
       <button
         disabled={playDisabled}
@@ -3596,6 +3701,8 @@ export default function HarpGliss() {
       <div style={{ marginTop:10, fontSize:12, color:t.text5, textAlign:"center", minHeight:16, lineHeight:"16px" }}>
         {playing && currentIdx !== null
           ? <>Now playing: <strong style={{ display:"inline-block", minWidth:"2.6em", textAlign:"left", lineHeight:"16px" }}>{noteLabel(currentIdx, pedals)}</strong></>
+          : mode === "chord" && liveMode
+          ? "Live play: click/tap the grid"
           : mode === "chord" && chordSel.size === 0
           ? "Select notes on the grid to build a chord"
           : "Pedal changes apply live during playback"}
