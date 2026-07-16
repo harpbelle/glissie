@@ -286,7 +286,8 @@ function pairMax(hi, lo, span) {              // hi, lo = finger numbers, hi > l
   if (d >= 3) return span - 1;                // 4-1: full hand
   if (d === 2) return span - 2;               // 4-2, 3-1: one finger skipped
   if (lo === 1) return span - 3;              // thumb-index: octave at span 10, 9th at 11
-  return Math.floor(span / 2);                // 4-3, 3-2: half the span — 5th at 8–9, 6th at 10–11, 7th at 12–13, octave at 14–15
+  if (hi === 3) return Math.floor(span / 2) + 1; // 3-2: one step roomier than 4-3 — 6th at span 8–9, 7th at 10–11, octave at 12–13
+  return Math.floor(span / 2);                // 4-3: half the span — 5th at 8–9, 6th at 10–11, 7th at 12–13, octave at 14–15
 }
 function handFeasible(notes, span) {
   const k = notes.length;
