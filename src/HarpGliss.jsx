@@ -1626,6 +1626,8 @@ export default function HarpGliss() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
   const wide = viewportW >= 1024;   // two-column desktop layout above this width
+  const roomy = viewportW >= 560;   // grid + staff side by side in Chord / Live: any
+                                    // desktop window incl. compact, but not phones
   useEffect(() => { setDetExpand(false); }, [pedals]);
   useEffect(() => {
     const el = detRef.current;
@@ -2831,6 +2833,47 @@ export default function HarpGliss() {
 
 
   // ─────────────────────────────────────────────────────────────────────────
+  // Play button + status line, shared by both layouts: under the pedal card
+  // on wide screens (pedals + Play = the two live-performance controls, and
+  // it balances the columns), in the playback column flow on compact.
+  const playBlock = (
+    <>
+      {/* Play */}
+      {(() => {
+        const noChordNotes = mode === "chord" && chordSel.size === 0 && !playing;
+        const noScaleNotes = mode === "scale" && !arpMask.some(Boolean) && !playing;
+        // Live play: the grid itself is the instrument, so scheduled playback
+        // is irrelevant (setLive already stopped anything running).
+        const liveOn = mode === "chord" && liveMode;
+        const playDisabled = noChordNotes || noScaleNotes || liveOn;
+        return (
+      <button
+        disabled={playDisabled}
+        onClick={() => (playing ? stop() : start())}
+        style={{
+          width:"100%", padding:12, borderRadius:8, border:"none",
+          background: playing ? t.red : playDisabled ? t.text6 : t.grn, color:"white",
+          fontSize:16, fontWeight:"bold", cursor: playDisabled ? "default" : "pointer", letterSpacing:1,
+          lineHeight:1.5, boxShadow:t.shadowL, opacity: playDisabled ? 0.5 : 1,
+        }}
+      >
+        {playing ? "⏹ Stop" : "▶ Play"}
+      </button>
+        );
+      })()}
+
+      <div style={{ marginTop:10, fontSize:12, color:t.text5, textAlign:"center", minHeight:16, lineHeight:"16px" }}>
+        {playing && currentIdx !== null
+          ? <>Now playing: <strong style={{ display:"inline-block", minWidth:"2.6em", textAlign:"left", lineHeight:"16px" }}>{noteLabel(currentIdx, pedals)}</strong></>
+          : mode === "chord" && liveMode
+          ? "Live play: click/tap the grid"
+          : mode === "chord" && chordSel.size === 0
+          ? "Select notes on the grid to build a chord"
+          : "Pedal changes apply live during playback"}
+      </div>
+    </>
+  );
+
   return (
     <div style={{
       maxWidth: wide ? 1080 : 520, margin:"0 auto", padding:"16px 12px",
@@ -3247,6 +3290,7 @@ export default function HarpGliss() {
         </div>
       </div>
 
+      {wide && playBlock}
       </div>{/* end config column */}
       <div style={{ flex: wide ? "1 1 0" : "0 1 auto", minWidth:0, width: wide ? "auto" : "100%" }}>
 
@@ -3433,7 +3477,12 @@ export default function HarpGliss() {
                 the octave colour lives in the thin accent bar along the bottom
                 edge (see legend above). Fixed height + flex centring keep the
                 text steady when ♭/♯ appear. */}
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(7, 1fr)", gap:4, marginBottom:8 }}>
+            {/* Roomy viewports (both sub-modes, incl. compact desktop windows;
+                phones excluded): grid and staff share one row —
+                the 1fr columns simply narrow to make room, so no fixed button
+                widths are needed and mobile (stacked) keeps its current sizing. */}
+            <div style={{ display: roomy ? "flex" : "block", gap:12, alignItems:"flex-start" }}>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(7, 1fr)", gap:4, marginBottom:8, flex:"1 1 auto", minWidth:0 }}>
               {[6,5,4,3,2,1,0].flatMap(r => {
                 const cells = rng(r * 7, Math.min(r * 7 + 6, 46)).map(i => {
                   const s = STRINGS[i];
@@ -3488,10 +3537,17 @@ export default function HarpGliss() {
                 return cells;
               })}
             </div>
+            {roomy && (
+              <div style={{ flex:"0 0 auto" }}>
+                <ChordStaff noteIdxs={[...(liveMode ? liveRing : chordSel)].sort((a, b) => a - b)} pedals={pedals} t={t} dark={darkMode} />
+              </div>
+            )}
+            </div>
 
             {/* Two columns: settings (left, flexible) and the live notation
                 preview (right-aligned; wraps below on narrow screens). The
                 staff only renders once at least one string is selected. */}
+            {!(liveMode && roomy) && (
             <div style={{ display:"flex", gap:10, alignItems:"flex-start", flexWrap:"wrap" }}>
             {/* The whole chord-building column (count/Clear, limits, break
                 chord, loop) is hidden in Live — none of it applies when the
@@ -3587,10 +3643,11 @@ export default function HarpGliss() {
                 Live feeds it the still-ringing strikes instead of the built
                 chord: notes bleed on the staff for the Sostenuto length, each
                 expiring independently. */}
-            <div style={{ marginLeft:"auto", alignSelf:"flex-start" }}>
+            {!roomy && <div style={{ marginLeft:"auto", alignSelf:"flex-start" }}>
               <ChordStaff noteIdxs={[...(liveMode ? liveRing : chordSel)].sort((a, b) => a - b)} pedals={pedals} t={t} dark={darkMode} />
+            </div>}
             </div>
-            </div>
+            )}
           </>
         )}
 
@@ -3678,39 +3735,9 @@ export default function HarpGliss() {
         })()}
       </div>
 
-      {/* Play */}
-      {(() => {
-        const noChordNotes = mode === "chord" && chordSel.size === 0 && !playing;
-        const noScaleNotes = mode === "scale" && !arpMask.some(Boolean) && !playing;
-        // Live play: the grid itself is the instrument, so scheduled playback
-        // is irrelevant (setLive already stopped anything running).
-        const liveOn = mode === "chord" && liveMode;
-        const playDisabled = noChordNotes || noScaleNotes || liveOn;
-        return (
-      <button
-        disabled={playDisabled}
-        onClick={() => (playing ? stop() : start())}
-        style={{
-          width:"100%", padding:12, borderRadius:8, border:"none",
-          background: playing ? t.red : playDisabled ? t.text6 : t.grn, color:"white",
-          fontSize:16, fontWeight:"bold", cursor: playDisabled ? "default" : "pointer", letterSpacing:1,
-          lineHeight:1.5, boxShadow:t.shadowL, opacity: playDisabled ? 0.5 : 1,
-        }}
-      >
-        {playing ? "⏹ Stop" : "▶ Play"}
-      </button>
-        );
-      })()}
-
-      <div style={{ marginTop:10, fontSize:12, color:t.text5, textAlign:"center", minHeight:16, lineHeight:"16px" }}>
-        {playing && currentIdx !== null
-          ? <>Now playing: <strong style={{ display:"inline-block", minWidth:"2.6em", textAlign:"left", lineHeight:"16px" }}>{noteLabel(currentIdx, pedals)}</strong></>
-          : mode === "chord" && liveMode
-          ? "Live play: click/tap the grid"
-          : mode === "chord" && chordSel.size === 0
-          ? "Select notes on the grid to build a chord"
-          : "Pedal changes apply live during playback"}
-      </div>
+      {/* Play + status render here in compact view (below the mode panel);
+          on wide screens the block moves under the pedal card instead. */}
+      {!wide && playBlock}
 
       </div>{/* end playback column */}
       </div>{/* end responsive body */}
