@@ -28,8 +28,9 @@
 
 - **Audio**: plucked concert harp from the [Versilian Community Sample Library](https://github.com/sgossner/VCSL) (CC0 1.0); harmonics, près de la table, nail, xylophonic, and étouffé recorded by Yijun Lin (CC0 1.0).
 - **Code & design**: Yijun Lin, vibe coded with [Claude.ai](https://claude.ai) (Anthropic).
-- **Musical glyphs**: from Bravura, SIL OFL.
+- **Musical glyphs**: notation symbols extracted from [Bravura](https://github.com/steinbergmedia/bravura) (SIL OFL 1.1).
+- **Display fonts**: Italianno and Ephesis, from Google Fonts (SIL OFL 1.1).
 
 ## Licence
 
-MIT - see `LICENSE`. The bundled harp samples are CC0 (public domain).
+MIT - see `LICENSE`. The bundled harp samples are CC0 (public domain); the font licences are in `OFL.txt`.

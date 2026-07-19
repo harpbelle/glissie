@@ -352,21 +352,26 @@ function ChordStaff({ noteIdxs, pedals, t, dark, techs, live }) {
         return out;
       })()}
       {/* Étouffé: "+" (Bravura left-hand-pizzicato glyph, U+E633). In Live —
-          monophonic, one note at a time — it sits directly above its own
-          note's x: above the treble staff for treble-group notes (4C /
-          middle C and up), above the bass staff for 4B-and-below (the
-          harmonic circles' overlap-the-treble-clef convention). In Chord
-          mode the selection is one damped chord, so the sign is applied
-          once per staff group like the nail crescent — above the treble
-          staff and below the bass staff, at the fixed note column — never
-          stacked per note. */}
+          monophonic, one note at a time — it sits at its own note's x:
+          above the treble staff for treble-group notes (4C / middle C and
+          up), rising as the note climbs; and below the bass staff for
+          4B-and-below, sinking as the note descends — a mirror image of the
+          treble placement, staying clear of the bass clef. In Chord mode the
+          selection is one damped chord, so the sign is applied once per
+          staff group like the nail crescent — above the treble staff and
+          below the bass staff, at the fixed note column — never stacked. */}
       {placed.some(n => n.tech === "etouf") && (() => {
         const en = placed.filter(n => n.tech === "etouf");
         if (live) {
+          // The glyph draws upward from its origin (272 units tall), so the
+          // origin is the sign's bottom. Treble: origin 2 px above the top
+          // reference line. Bass: shift the origin down by the glyph height
+          // so the sign hangs 2 px below the bottom reference line.
+          const H_GLYPH = 272 * k;
           return en.map((n, i) => {
-            const baseLine = n.step >= 28 ? TRE_TOP : BAS_TOP;
-            const topStep = Math.max(baseLine, n.step + 1);
-            const base = y(topStep) - 2;             // 2 px gap, like circles
+            const base = n.step >= 28
+              ? y(Math.max(TRE_TOP, n.step + 1)) - 2
+              : Math.min(H - 1, y(Math.min(BAS_BOT, n.step - 1)) + 2 + H_GLYPH);
             return <path key={`e${i}`} d={ETOUF_PATH} fill={ink}
               transform={`translate(${n.x - 136 * k} ${base}) scale(${k})`}/>;
           });
