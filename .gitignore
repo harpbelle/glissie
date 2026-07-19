@@ -4,3 +4,6 @@ dist/
 .DS_Store
 .vite/
 deploy_ids.txt
+CLAUDE.md
+.claude/
+limits.csv
