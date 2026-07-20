@@ -476,17 +476,15 @@ function pairMaxPluck(hi, lo, span) {         // hi, lo = finger numbers, hi > l
   if (hi === 3) return Math.floor(span / 2) + 1; // 3-2: one step roomier than 4-3 — 6th at span 8–9, 7th at 10–11, octave at 12–13
   return Math.floor(span / 2);                // 4-3: half the span — 5th at 8–9, 6th at 10–11, 7th at 12–13, octave at 14–15
 }
-// Pdlt/nail: playing near the soundboard cramps the adjacent low pairs to
-// roughly a third of the (already smaller) hand span, while pairs that skip a
-// finger keep nearly the whole span (limits.csv; same index-difference units
-// as pairMaxPluck).
-function pairMaxThird(hi, lo, span, ceil43) {
+// Pdlt/nail (identical model): playing near the soundboard cramps the adjacent
+// low pairs (4-3, 3-2) to ceil(span/3), while pairs that skip a finger keep
+// nearly the whole span (limits.csv; same index-difference units as
+// pairMaxPluck).
+function pairMaxThird(hi, lo, span) {
   const d = hi - lo;
   if (d >= 2) return span - 1;                // 4-2, 3-1, 4-1: the whole hand span
   if (lo === 1) return span - 2;              // thumb-index: one string shy of the span
-  if (hi === 3) return Math.ceil(span / 3);   // 3-2
-  return ceil43 ? Math.ceil(span / 3)         // 4-3 — nail rounds up,
-    : Math.floor(span / 3);                   //        pdlt rounds down
+  return Math.ceil(span / 3);                 // 4-3 and 3-2
 }
 // Per-technique chord limits (limits.csv). fingers = max notes per [left,
 // right] hand; span* = the hand-span slider's bounds and default; pair =
@@ -498,7 +496,7 @@ const TECH_LIMITS = {
   harm:    { fingers: [3, 1], spanMin: 3, spanMax: 8,  spanDef: 5,  pair: "none",  canBreak: false },
   xylo:    { fingers: [0, 4], spanMin: 4, spanMax: 10, spanDef: 6,  pair: "pluck", canBreak: true },
   pdlt:    { fingers: [4, 4], spanMin: 4, spanMax: 12, spanDef: 8,  pair: "third", canBreak: true },
-  nail:    { fingers: [4, 4], spanMin: 4, spanMax: 12, spanDef: 8,  pair: "nail",  canBreak: true },
+  nail:    { fingers: [4, 4], spanMin: 4, spanMax: 12, spanDef: 8,  pair: "third", canBreak: true },
   etouf:   { fingers: [4, 4], spanMin: 8, spanMax: 15, spanDef: 10, pair: "pluck", canBreak: false },
 };
 function handFeasible(notes, span, cap, pair) {
@@ -507,8 +505,7 @@ function handFeasible(notes, span, cap, pair) {
   if (k > cap) return false;
   if (notes[k - 1] - notes[0] > span - 1) return false;
   if (k === 1 || pair === "none") return true;
-  const pm = pair === "pluck" ? pairMaxPluck
-    : (h, l, s) => pairMaxThird(h, l, s, pair === "nail");
+  const pm = pair === "third" ? pairMaxThird : pairMaxPluck;
   // Choose k fingers out of 4-3-2-1 (descending finger = ascending pitch).
   const combos = { 2: [[4,3],[4,2],[4,1],[3,2],[3,1],[2,1]],
                    3: [[4,3,2],[4,3,1],[4,2,1],[3,2,1]],
@@ -1521,6 +1518,58 @@ function matchPresets(pedals, userPresets) {
 }
 
 // ─── KARPLUS-STRONG (placeholder voice; to be replaced with samples) ───────
+// Measured start of audible signal in a decoded sample, in seconds: the first
+// frame above 10% of the buffer's peak, backed off 4 ms. Every bank is trimmed
+// to leave ~15 ms of lead-in before the attack (see the processing recipe),
+// which in Live mode reads as lag between the tap and the sound. Starting
+// playback from this offset puts the attack on the tap. The threshold is
+// deliberately low so a slow swell (harmonics) keeps its whole attack; only
+// the near-silent run-in is skipped.
+function bufferOnset(buf) {
+  const ch = buf.getChannelData(0);
+  let peak = 0;
+  for (let i = 0; i < ch.length; i++) { const a = Math.abs(ch[i]); if (a > peak) peak = a; }
+  if (!peak) return 0;
+  const thr = peak * 0.1;
+  let i = 0;
+  while (i < ch.length && Math.abs(ch[i]) < thr) i++;
+  return Math.max(0, i / buf.sampleRate - 0.004);
+}
+// [midi, buffer] pairs → { midi: onsetSeconds }, keys kept verbatim so the
+// float midis of the self-recorded banks round-trip exactly.
+function onsetsOf(entries) {
+  return Object.fromEntries(entries.map(([midi, buf]) => [midi, bufferOnset(buf)]));
+}
+
+// Wire/gut string-material boundary. On the harp, strings 7C..5G are steel
+// wire and 5A upward are gut/nylon — a large timbral change. Samples recorded
+// on a wire string must not be borrowed for a gut note or vice versa, even
+// when a cross-boundary sample is nearer in pitch; otherwise the enharmonic
+// pair 5G# (wire G string, sharp) and 5A♭ (gut A string, flat) — identical in
+// pitch — collapse to one sound. The self-recorded banks carry a 5G♭ (wire)
+// and a 5A♭ (gut) either side of the gap, so 5G# draws the wire sample shifted
+// up and 5A♭ the gut sample directly. Strings above 5A (Savarez vs Nycor) are
+// treated as one zone; that boundary's timbre change is minor.
+const WIRE_HI_IDX = IDX["5G"];   // highest wire string index
+const WIRE_SAMPLE_MAX = 43;      // string-pitch keys <= this are wire recordings
+// Nearest recorded sample to `target`, restricted to the played string's
+// material zone. keyOffset lets banks whose keys are the *sounding* pitch
+// (harmonics: an octave above the string) shift the split accordingly.
+function pickSample(table, target, idx, keyOffset) {
+  const wire = idx <= WIRE_HI_IDX;
+  const thr = WIRE_SAMPLE_MAX + keyOffset;
+  let best = null;
+  for (const m of table) {
+    if ((m <= thr) !== wire) continue;           // same-zone samples only
+    if (best === null || Math.abs(m - target) < Math.abs(best - target)) best = m;
+  }
+  if (best !== null) return best;
+  // No sample in the note's zone (e.g. a bank with no wire recordings): fall
+  // back to the global nearest so the note still sounds.
+  best = table[0];
+  for (const m of table) if (Math.abs(m - target) < Math.abs(best - target)) best = m;
+  return best;
+}
 function pluck(ctx, dest, freq, duration, volume, when) {
   const sr = ctx.sampleRate;
   const N = Math.round(sr / freq);
@@ -2054,7 +2103,9 @@ export default function HarpGliss() {
   }, [pedals, direction, presetRoot, rootSnap]);
 
   // ── Audio ──
-  const samplesRef = useRef({ buffers: null, loading: false });
+  // onsets: per-bank { midiKey: seconds } of measured lead-in, skipped at
+  // playback so the attack lands on the tap rather than ~15-35 ms after it.
+  const samplesRef = useRef({ buffers: null, loading: false, onsets: {} });
   const voicesRef = useRef([]); // active { src, gain, endsAt } for voice-stealing
   // Étouffé's single sounding voice: { idx, src, gain, filt }. Monophonic by
   // definition, so it lives outside the voice-stealing pool — Max voices is
@@ -2087,7 +2138,9 @@ export default function HarpGliss() {
 
   function getAudio() {
     if (!audioRef.current) {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      // latencyHint "interactive" asks for the smallest buffer the device can
+      // sustain, so a Live tap sounds as promptly as possible.
+      const ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: "interactive" });
       // iOS 16.4+: request the "playback" audio session so output is NOT silenced
       // by the phone's physical mute/ringer switch (the default "ambient" session
       // is). No-op where unsupported (desktop, older Safari, Chrome, Firefox).
@@ -2135,6 +2188,7 @@ export default function HarpGliss() {
         })
       );
       S.buffers = Object.fromEntries(entries);
+      S.onsets.default = onsetsOf(entries);
     } catch (e) {
       S.buffers = null; // fall back to synthesis permanently this session
     }
@@ -2151,6 +2205,7 @@ export default function HarpGliss() {
         })
       );
       S.harmBuffers = Object.fromEntries(hEntries);
+      S.onsets.harm = onsetsOf(hEntries);
     } catch (e) {
       S.harmBuffers = null;
     }
@@ -2167,19 +2222,7 @@ export default function HarpGliss() {
         })
       );
       S.xyloBuffers = Object.fromEntries(xEntries);
-      // Xylophonic attacks are sharp clicks, so the ~24 ms of recording/
-      // encoder lead-in in these files reads as the sound lagging the
-      // string highlight (softer-attack banks mask the same lead-in).
-      // Measure each buffer's transient (first 50%-of-peak crossing) and
-      // start playback 5 ms before it.
-      S.xyloOnsets = Object.fromEntries(xEntries.map(([midi, buf]) => {
-        const ch = buf.getChannelData(0);
-        let peak = 0;
-        for (let i = 0; i < ch.length; i++) { const a = Math.abs(ch[i]); if (a > peak) peak = a; }
-        let i = 0;
-        while (i < ch.length && Math.abs(ch[i]) <= peak * 0.5) i++;
-        return [midi, Math.max(0, i / buf.sampleRate - 0.005)];
-      }));
+      S.onsets.xylo = onsetsOf(xEntries);
     } catch (e) {
       S.xyloBuffers = null;
     }
@@ -2196,6 +2239,7 @@ export default function HarpGliss() {
         })
       );
       S.pdltBuffers = Object.fromEntries(pEntries);
+      S.onsets.pdlt = onsetsOf(pEntries);
     } catch (e) {
       S.pdltBuffers = null;
     }
@@ -2212,6 +2256,7 @@ export default function HarpGliss() {
         })
       );
       S.nailBuffers = Object.fromEntries(nEntries);
+      S.onsets.nail = onsetsOf(nEntries);
     } catch (e) {
       S.nailBuffers = null;
     }
@@ -2228,6 +2273,7 @@ export default function HarpGliss() {
         })
       );
       S.etoufBuffers = Object.fromEntries(eEntries);
+      S.onsets.etouf = onsetsOf(eEntries);
     } catch (e) {
       S.etoufBuffers = null;
     }
@@ -2298,10 +2344,7 @@ export default function HarpGliss() {
       const bank = eBufs || bufs;
       const table = eBufs ? ETOUFFE_MIDIS : SAMPLE_MIDIS;
       if (bank) {
-        let best = table[0];
-        for (const m of table) {
-          if (Math.abs(m - targetMidi) < Math.abs(best - targetMidi)) best = m;
-        }
+        const best = pickSample(table, targetMidi, idx, 0); // zone-locked (étouffé sounds at string pitch)
         const rate = (tuningRef.current / 440) * Math.pow(2, (targetMidi - best) / 12);
         const src = ctx.createBufferSource();
         src.buffer = bank[best];
@@ -2311,13 +2354,17 @@ export default function HarpGliss() {
         filt.frequency.setValueAtTime(ETOUF_LP_OPEN, t);
         const g = ctx.createGain();
         g.gain.setValueAtTime(0, t);
-        g.gain.linearRampToValueAtTime(vol, t + 0.012); // declick + soften attack
+        g.gain.linearRampToValueAtTime(vol, t + 0.003); // declick only; the 4 ms
+        // of run-in left by bufferOnset means this ramp finishes before the
+        // attack, so the transient stays sharp instead of being smoothed off.
         g.gain.setValueAtTime(vol, t + ETOUF_RING);
         g.gain.exponentialRampToValueAtTime(0.0001, t + ETOUF_RING + ETOUF_DAMP);
         filt.frequency.setValueAtTime(ETOUF_LP_OPEN, t + ETOUF_RING);
         filt.frequency.exponentialRampToValueAtTime(ETOUF_LP_CLOSED, t + ETOUF_RING + ETOUF_DAMP);
         src.connect(filt); filt.connect(g); g.connect(dest);
-        src.start(t);
+        // Skip the lead-in, as in the sampled path above; the ring/damp
+        // envelope stays anchored to t, so it times from the attack.
+        src.start(t, samplesRef.current.onsets?.[eBufs ? "etouf" : "default"]?.[best] || 0);
         src.stop(t + ETOUF_RING + ETOUF_DAMP + 0.05);
         if (isLiveStrike) etoufVoiceRef.current = { idx, src, gain: g, filt };
       } else {
@@ -2333,17 +2380,18 @@ export default function HarpGliss() {
       // few-cent tuning residuals cancel out in the rate here.
       const table = harm ? HARMONIC_MIDIS : xylo ? XYLOPHONIC_MIDIS
         : pdlt ? PDLT_MIDIS : nail ? NAIL_MIDIS : SAMPLE_MIDIS;
-      let best = table[0];
-      for (const m of table) {
-        if (Math.abs(m - targetMidi) < Math.abs(best - targetMidi)) best = m;
-      }
+      // Zone-locked pick so the wire/gut boundary at 5G|5A is respected
+      // (harmonic keys sound an octave above the string, hence the +12).
+      const best = pickSample(table, targetMidi, idx, harm ? 12 : 0);
       const rate = (tuningRef.current / 440) * Math.pow(2, (targetMidi - best) / 12);
       const src = ctx.createBufferSource();
       src.buffer = bufs[best];
       src.playbackRate.value = rate;
       const g = ctx.createGain();
       g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(vol, t + 0.012); // declick + soften attack
+      g.gain.linearRampToValueAtTime(vol, t + 0.003); // declick only; the 4 ms
+      // of run-in left by bufferOnset means this ramp finishes before the
+      // attack, so the transient stays sharp instead of being smoothed off.
       // Sostenuto length, live-tunable per mode via the sound panel.
       // Gliss: measured in notes (scales with speed). Scale/chord: seconds.
       const noteGap = 1 / speedRef.current;
@@ -2354,9 +2402,9 @@ export default function HarpGliss() {
       g.gain.setValueAtTime(vol, t + tail - fade);
       g.gain.exponentialRampToValueAtTime(0.0001, t + tail);
       src.connect(g); g.connect(dest);
-      // Xylophonic: skip the measured in-buffer lead-in so the click lands
-      // on the scheduled beat (and the string highlight).
-      src.start(t, xylo ? (samplesRef.current.xyloOnsets?.[best] || 0) : 0);
+      // Skip the measured in-buffer lead-in so the attack lands on the tap
+      // (Live) or the scheduled beat and string highlight (Scale/Gliss).
+      src.start(t, samplesRef.current.onsets?.[tech]?.[best] || 0);
       src.stop(t + tail + 0.05);
 
       // ── Voice-stealing (cap live-tunable) ──
@@ -3444,7 +3492,7 @@ export default function HarpGliss() {
           <strong>Loop:</strong> When ticked (the default), playback repeats with the given gap between passes; untick it to play a single pass and stop. For the Both direction that means one full out-and-back pass. Scale/Arpeggio and Glissando allow a gap from 0 to 20 seconds (0 runs straight into the next pass at the playing speed, with no pause); Chord uses 1 to 20 seconds. Each mode remembers its own value. With Continuous set to Yes, a ticked Loop repeats seamlessly and the interval is ignored.<br/><br/>
           <strong>Continuous (Both direction):</strong> <em>Yes</em> ping-pongs seamlessly with no pause and neither turnaround note repeated; <em>No</em> plays one full out-and-back pass, then pauses for the Loop interval before repeating. Each mode remembers its own choice.<br/><br/>
           <strong>Note limit:</strong> A harpist plays with four fingers of each hand (the little fingers are not used), so only so many strings can be sounded at once. In Chord mode, ticking <em>Enforce: Note limit</em> caps the selection and greys out the rest once you reach the cap; untick it to select freely. The cap depends on the technique, and was set empirically from what the hand can realistically manage rather than by a strict rule.<br/><br/>
-          <strong>Hand span limit:</strong> Available when the note limit is enforced. It bounds how far apart the notes in one hand can sit, and how the two hands can split the selection. The reachable spans were calibrated by testing on a real harp rather than computed, and they vary by technique. Strings that no legal two-hand arrangement could still include are greyed out.<br/><br/>
+          <strong>Hand span limit:</strong> Available when the note limit is enforced. It bounds how far apart the notes in one hand can sit, and how the two hands can split the selection. The reachable spans were calibrated by testing on a real harp rather than computed, and they vary by technique. Strings that no legal two-hand arrangement could still include are greyed out. These figures are approximations rather than strict rules: hands differ from player to player, so treat them as a guide.<br/><br/>
           <strong>Snap to root:</strong> When on, pedalling into a configuration that matches a known scale automatically moves the start (and end) notes to that scale's root. Turn it off to pedal around freely without the notes jumping. Choosing a preset from the menu always snaps, regardless of this setting.<br/><br/>
           <strong>Sound:</strong> The plucked tone is the sampled concert harp from the Versilian Community Sample Library (VCSL, CC0). Harmonics, près de la table, nail, xylophonic, and étouffé are samples recorded on a concert harp by the author (CC0). The reference pitch is adjustable (A = 430 to 450 Hz). In Advanced settings you can set the sostenuto length and the number of simultaneous voices; these do not affect Étouffé, which manages its own damping.
         </div>
