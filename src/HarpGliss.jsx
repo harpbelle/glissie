@@ -1,6 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
-import { SAMPLE_MIDIS, HARP_SAMPLES } from "./samples/harpSamples.js";
-import { HARMONIC_SAMPLES } from "./samples/harmonicSamples.js";
+import { SAMPLE_MIDIS, HARP_SAMPLES } from "./samples/harp.js";
+import { HARMONIC_SAMPLES } from "./samples/harmonics.js";
 import { XYLOPHONIC_SAMPLES, XYLOPHONIC_MIDIS } from "./samples/xylophonic.js";
 import { PDLT_SAMPLES, PDLT_MIDIS } from "./samples/pdlt.js";
 import { NAIL_SAMPLES, NAIL_MIDIS } from "./samples/nail.js";
