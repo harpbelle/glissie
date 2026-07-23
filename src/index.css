@@ -38,6 +38,25 @@ input[type="range"]::-moz-range-thumb {
   cursor: pointer;
 }
 
+/* Custom-order sequence caret */
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+/* Custom-order sequence strip: thin horizontal scrollbar so a fixed-height
+   row never grows when the scrollbar appears. */
+.seq-strip {
+  scrollbar-width: thin;
+}
+.seq-strip::-webkit-scrollbar {
+  height: 6px;
+}
+.seq-strip::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.5);
+  border-radius: 3px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
+  .blink, [style*="blink"] { animation: none !important; }
 }

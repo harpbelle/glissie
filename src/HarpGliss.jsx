@@ -445,6 +445,41 @@ function buildScaleSequence(scaleStart, octaveCount, arpMask, direction, bothSta
   const first = bothStart === "down" ? descendPass() : ascendPass();
   return [...first, ...first.slice(0, -1).reverse()];
 }
+// Custom-order scale/arpeggio: play `seq` (absolute string indices, in user
+// order, repeats allowed), then repeat it in each further octave stacked
+// upward (asc) or downward (desc). Notes are stored absolutely, so changing
+// the start note only changes which notes the degree buttons offer next — it
+// never transposes a sequence you've already built.
+// "both" bounces over the OCTAVES, never over the notes: the pattern always
+// plays forward (0,1,2,1,0 for three octaves), because a user-ordered motif
+// played backwards sounds wrong. At one octave there is nothing to bounce, so
+// "both" is a single pass like asc/desc.
+// lo/hi bound the technique's playable range: notes outside it (which a
+// technique switch can strand in an existing sequence) are skipped rather than
+// sounded on a string the technique can't play. dropLastBlock trims the
+// repeated closing octave for a seamless Continuous loop — done here, by octave
+// block, because skipped notes make blocks uneven so a fixed-length tail slice
+// would cut into the wrong block.
+function buildCustomSequence(octaveCount, seq, direction, bothStart, lo, hi, dropLastBlock) {
+  const emit = (sign, octs) => {
+    const out = [];
+    for (const o of octs) {
+      for (const n of seq) {
+        const idx = n + sign * o * 7;
+        if (idx >= Math.max(0, lo) && idx <= Math.min(46, hi)) out.push(idx);
+      }
+    }
+    return out;
+  };
+  const upTo = (n) => Array.from({ length: n }, (_, i) => i);
+  if (direction === "asc") return emit(1, upTo(octaveCount));
+  if (direction === "desc") return emit(-1, upTo(octaveCount));
+  // Octave ping-pong: out to the far octave and back, turnaround not repeated.
+  const octs = upTo(octaveCount);
+  for (let o = octaveCount - 2; o >= 0; o--) octs.push(o);
+  if (dropLastBlock && octs.length > 1) octs.pop();
+  return emit(bothStart === "down" ? -1 : 1, octs);
+}
 // Gliss non-both: a straight run from start to end.
 function buildGlissSequence(glissStart, glissEnd) {
   return rng(glissStart, glissEnd);
@@ -1601,6 +1636,7 @@ const DEFAULT_PEDALS = { D:0, C:0, B:0, E:0, F:0, G:0, A:0 };
 // Saved configs and sound preferences persist on the user's own device.
 const LS_PRESETS = "glissie.userPresets.v1";
 const LS_SETTINGS = "glissie.settings.v1";
+const CUSTOM_MAX = 64; // Custom order: soft cap so a stuck press can't build a runaway strip
 const LS_DARK = "glissie.darkMode";
 function loadJSON(key, fallback) {
   try {
@@ -1919,6 +1955,17 @@ export default function HarpGliss() {
   const [playing, setPlaying] = useState(false);
   const [currentIdx, setCurrentIdx] = useState(null);
   const [showHelp, setShowHelp] = useState(false);
+  // Help is long, so each topic collapses. Several may be open at once (it's
+  // reference material, not an accordion); all start closed.
+  const [openHelpSecs, setOpenHelpSecs] = useState(() => new Set());
+  // Wide layout: which column the Play + status block sits in. It moves to
+  // whichever column is currently shorter, so opening the presets menu (which
+  // lengthens the left column) doesn't leave the right one stubby. Compact
+  // ignores this and keeps Play at the foot of the single column.
+  const [playSide, setPlaySide] = useState("left");
+  const leftColRef = useRef(null);
+  const rightColRef = useRef(null);
+  const playBlockRef = useRef(null);
   const [detExpand, setDetExpand] = useState(false);
   const [openAlts, setOpenAlts] = useState(new Set());
   const [detOverflow, setDetOverflow] = useState(false);
@@ -1978,6 +2025,40 @@ export default function HarpGliss() {
       ? saved.arpMask
       : [true, true, true, true, true, true, true, true];
   });
+  // Scale/Arpeggio sub-mode. "scale" = play the selected degrees in scale
+  // order (arpMask). "custom" = play a user-ordered sequence of degrees
+  // (customSeq), built by tapping the degree buttons; repeats allowed.
+  const [scaleOrderMode, setScaleOrderMode] = useState("scale");
+  // Custom sequence: absolute string indices in play order. Stored absolutely
+  // (not as degrees) so a note, once added, keeps its pitch — changing the
+  // start note only re-aims the degree buttons for the *next* note added.
+  // Persisted alongside arpMask, so Custom order remembers your notes between
+  // visits exactly as Scale order remembers its degree toggles. Anything the
+  // file may hold is re-validated here (indices only, within the harp, capped).
+  const [customSeq, setCustomSeq] = useState(() => {
+    const saved = loadJSON(LS_SETTINGS, {}).customSeq;
+    return Array.isArray(saved)
+      ? saved.filter(n => Number.isInteger(n) && n >= 0 && n <= 46).slice(0, CUSTOM_MAX)
+      : [];
+  });
+  // Insertion point for the next tap / edit; 0..customSeq.length. Starts at the
+  // end of a restored sequence so the next tap appends.
+  const [caretPos, setCaretPos] = useState(() => {
+    const saved = loadJSON(LS_SETTINGS, {}).customSeq;
+    return Array.isArray(saved)
+      ? saved.filter(n => Number.isInteger(n) && n >= 0 && n <= 46).slice(0, CUSTOM_MAX).length
+      : 0;
+  });
+  // Pointer-drag state for the sequence strip: reorder an existing chip, or
+  // drag a degree button down into a slot. dropPos is the live drop gap shown
+  // as a highlighted caret; seqDragRef holds the in-flight drag; the strip DOM
+  // (stripRef) is measured to map pointer x → gap; suppressClickRef stops a
+  // button-drag from also firing its tap (insert-at-caret) on release.
+  const stripRef = useRef(null);
+  const seqDragRef = useRef(null);
+  const suppressClickRef = useRef(false);
+  const dropPosRef = useRef(null); // latest drop gap, read on pointerup (no render race)
+  const [dropPos, setDropPos] = useState(null);
   const [showTuner, setShowTuner] = useState(false);
   // Per-mode sound settings (Sostenuto + Max voices), see SOUND_DEFAULTS.
   const [soundSettings, setSoundSettings] = useState(() => initSoundSettings(_savedSettings));
@@ -2001,9 +2082,9 @@ export default function HarpGliss() {
     setStorageWarn(ok ? "" : STORAGE_WARN_TEXT);
   }, [userPresets]);
   useEffect(() => {
-    const ok = saveJSON(LS_SETTINGS, { sound: soundSettings, rootSnap, arpMask });
+    const ok = saveJSON(LS_SETTINGS, { sound: soundSettings, rootSnap, arpMask, customSeq });
     if (!ok) setStorageWarn(STORAGE_WARN_TEXT);
-  }, [soundSettings, rootSnap, arpMask]);
+  }, [soundSettings, rootSnap, arpMask, customSeq]);
   useEffect(() => { try { localStorage.setItem(LS_DARK, darkMode ? "1" : "0"); } catch {} }, [darkMode]);
   useEffect(() => { document.body.style.backgroundColor = darkMode ? "#1a1a2e" : "#fafafa"; }, [darkMode]);
 
@@ -2019,6 +2100,8 @@ export default function HarpGliss() {
   const scaleStartRef = useRef(scaleStart);
   const octaveCountRef = useRef(octaveCount);
   const arpMaskRef = useRef(arpMask);
+  const scaleOrderModeRef = useRef(scaleOrderMode);
+  const customSeqRef = useRef(customSeq);
   const glissStartRef = useRef(glissStart);
   const glissEndRef = useRef(glissEnd);
   const chordSelRef = useRef(chordSel);
@@ -2040,10 +2123,39 @@ export default function HarpGliss() {
   useEffect(() => { scaleStartRef.current = scaleStart; }, [scaleStart]);
   useEffect(() => { octaveCountRef.current = octaveCount; }, [octaveCount]);
   useEffect(() => { arpMaskRef.current = arpMask; }, [arpMask]);
+  useEffect(() => { scaleOrderModeRef.current = scaleOrderMode; }, [scaleOrderMode]);
+  useEffect(() => { customSeqRef.current = customSeq; }, [customSeq]);
   useEffect(() => { glissStartRef.current = glissStart; }, [glissStart]);
   useEffect(() => { glissEndRef.current = glissEnd; }, [glissEnd]);
   useEffect(() => { chordSelRef.current = chordSel; }, [chordSel]);
   useEffect(() => { chordSpeedRef.current = chordSpeed; }, [chordSpeed]);
+  // Wide layout: keep Play in the shorter column, so opening the presets menu
+  // (which lengthens the left column) doesn't leave the right one stubby. Each
+  // column is measured with the Play block's own height taken back out, so
+  // placing it can't feed into the comparison and make the sides trade it back
+  // and forth; SLACK stops near-equal columns flapping over a pixel or two.
+  // The deps cover the state changes that actually move column heights; the
+  // ResizeObserver catches anything else (font loads, wrapping) at runtime.
+  useLayoutEffect(() => {
+    if (!wide) return;
+    const l = leftColRef.current, r = rightColRef.current;
+    if (!l || !r) return;
+    const SLACK = 24;
+    const measure = () => {
+      const ph = playBlockRef.current ? playBlockRef.current.offsetHeight : 0;
+      setPlaySide(side => {
+        const left = l.offsetHeight - (side === "left" ? ph : 0);
+        const right = r.offsetHeight - (side === "right" ? ph : 0);
+        if (side === "left" && left > right + SLACK) return "right";
+        if (side === "right" && right > left + SLACK) return "left";
+        return side;
+      });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(l); ro.observe(r);
+    return () => ro.disconnect();
+  }, [wide, playSide, mode, showPresets, showSave, scaleOrderMode, customSeq.length, chordSel.size, liveMode]);
   useEffect(() => { scaleLoopSecRef.current = scaleLoopSec; }, [scaleLoopSec]);
   useEffect(() => { glissLoopSecRef.current = glissLoopSec; }, [glissLoopSec]);
   useEffect(() => { chordLoopSecRef.current = chordLoopSec; }, [chordLoopSec]);
@@ -2574,7 +2686,16 @@ export default function HarpGliss() {
       // With Loop off, a single full pass plays (final note included) and stops,
       // so Continuous is moot.
       const cont = direction === "both" && scaleContinuous && scaleLoop;
+      const [tLo, tHi] = techRange(tech); // technique's playable strings
       const buildScale = () => {
+        // Custom order trims its own continuous tail (by octave block, since
+        // out-of-range notes make blocks uneven). Scale order bounces
+        // note-by-note, so its seamless loop drops the single repeated note.
+        if (scaleOrderModeRef.current === "custom") {
+          return buildCustomSequence(
+            octaveCountRef.current, customSeqRef.current,
+            directionRef.current, bothStartRef.current, tLo, tHi, cont);
+        }
         const seq = buildScaleSequence(
           scaleStartRef.current, octaveCountRef.current, arpMaskRef.current,
           directionRef.current, bothStartRef.current);
@@ -2726,15 +2847,32 @@ export default function HarpGliss() {
   // the octave count: the whole run must stay inside it (harmonics 6E…2F,
   // xylophonic 5A…0G; other techniques cover the full harp).
   const [scaleLo, scaleHi] = techRange(scaleTech);
-  const scaleRange = scaleDescLogic
+  // Custom order always uses the ascending start-note range (7C..1G),
+  // regardless of direction: the pattern extends upward from the start note
+  // while the octaves stack up or down separately, so the start needs headroom
+  // above in both directions and Asc/Desc share one range. Scale order keeps
+  // its lower [6C..0G] window for descending passes.
+  const scaleRange = (scaleDescLogic && scaleOrderMode !== "custom")
     ? [Math.max(RANGES.scaleDesc[0], scaleLo + 7), Math.min(RANGES.scaleDesc[1], scaleHi)]
     : [Math.max(RANGES.scaleAsc[0], scaleLo), Math.min(RANGES.scaleAsc[1], scaleHi - 7)];
   // How many whole octaves fit from the start note in the playing direction:
   // ascending (and up-first both) extend upward toward the range top; descending
-  // (and down-first both) extend downward toward the range bottom.
-  const maxOctaves = scaleDescLogic
-    ? Math.max(1, Math.floor((scaleStart - scaleLo) / 7))
-    : Math.max(1, Math.floor((scaleHi - scaleStart) / 7));
+  // (and down-first both) extend downward toward the range bottom. In Custom
+  // order the pattern's own highest/lowest degree eats into that headroom, so
+  // the fit is recomputed from the sequence and updates as notes are added or
+  // removed (an empty sequence falls back to the whole-octave assumption).
+  // Only notes the technique can actually play constrain the octave fit; ones
+  // stranded outside its range by a technique switch are skipped at playback.
+  const custPlayable = customSeq.filter(n => n >= scaleLo && n <= scaleHi);
+  const custHiNote = custPlayable.length ? Math.max(...custPlayable) : scaleStart + 7;
+  const custLoNote = custPlayable.length ? Math.min(...custPlayable) : scaleStart;
+  const maxOctaves = scaleOrderMode === "custom"
+    ? (scaleDescLogic
+        ? Math.max(1, Math.floor((custLoNote - scaleLo) / 7) + 1)
+        : Math.max(1, Math.floor((scaleHi - custHiNote) / 7) + 1))
+    : (scaleDescLogic
+        ? Math.max(1, Math.floor((scaleStart - scaleLo) / 7))
+        : Math.max(1, Math.floor((scaleHi - scaleStart) / 7)));
   useEffect(() => {
     if (octaveCount > maxOctaves) setOctaveCount(maxOctaves);
   }, [maxOctaves, octaveCount]);
@@ -2799,8 +2937,126 @@ export default function HarpGliss() {
     stop();
     setGlissTech(v);
   }
+  // ── Custom-order sequence editing (Scale/Arpeggio) ──
+  // Tapping a degree button inserts that note (resolved to an absolute string
+  // index at tap time) at the caret; the caret then advances so successive
+  // taps append in order. Repeats are allowed, and the soft cap keeps a
+  // runaway strip from filling the screen.
+  function insertNote(idx) {
+    setCustomSeq(seq => {
+      if (seq.length >= CUSTOM_MAX) return seq;
+      const at = Math.min(caretPos, seq.length);
+      const next = [...seq.slice(0, at), idx, ...seq.slice(at)];
+      setCaretPos(at + 1);
+      return next;
+    });
+    stop();
+  }
+  function removeAt(i) {          // delete one chip, keep the caret sensible
+    setCustomSeq(seq => seq.filter((_, j) => j !== i));
+    setCaretPos(p => (i < p ? p - 1 : p));
+    stop();
+  }
+  function backspaceSeq() {       // delete the chip before the caret
+    if (caretPos === 0) return;
+    removeAt(caretPos - 1);
+  }
+  function clearSeq() {
+    setCustomSeq([]);
+    setCaretPos(0);
+    stop();
+  }
+  function chooseScaleOrder(v) {  // Scale-order | Custom-order sub-toggle
+    stop();
+    setScaleOrderMode(v);
+  }
+  // ── Sequence drag (reorder a chip, or drop a degree button into a slot) ──
+  // Pointer-based (not native HTML5 drag) so it works on touch and desktop.
+  // Map a pointer x to the gap it's over by measuring the chip elements.
+  const DRAG_THRESH = 5; // px before a press becomes a drag rather than a tap
+  function gapFromX(clientX) {
+    const strip = stripRef.current;
+    if (!strip) return customSeq.length;
+    const els = [...strip.querySelectorAll("[data-chip]")];
+    for (let i = 0; i < els.length; i++) {
+      const r = els[i].getBoundingClientRect();
+      if (clientX < r.left + r.width / 2) return i;
+    }
+    return els.length;
+  }
+  function onSeqPointerDown(e, drag) {
+    // drag = { kind: "chip", from } | { kind: "btn", note }  (note = string index)
+    suppressClickRef.current = false; // clear any stale suppress from a prior drag
+    seqDragRef.current = { ...drag, moved: false, startX: e.clientX, startY: e.clientY };
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+  }
+  function onSeqPointerMove(e) {
+    const drag = seqDragRef.current;
+    if (!drag) return;
+    if (!drag.moved) {
+      if (Math.abs(e.clientX - drag.startX) < DRAG_THRESH &&
+          Math.abs(e.clientY - drag.startY) < DRAG_THRESH) return;
+      drag.moved = true;
+    }
+    const g = gapFromX(e.clientX);
+    dropPosRef.current = g;
+    setDropPos(g);
+  }
+  function onSeqPointerUp() {
+    const drag = seqDragRef.current;
+    seqDragRef.current = null;
+    const pos = dropPosRef.current;
+    dropPosRef.current = null;
+    setDropPos(null);
+    if (!drag || !drag.moved || pos == null) return;
+    // Only a button drag is followed by a click (on that button) that must be
+    // swallowed; a chip drag has none, so don't leave the flag set for it.
+    if (drag.kind === "btn") {
+      suppressClickRef.current = true;
+      setCustomSeq(seq => {
+        if (seq.length >= CUSTOM_MAX) return seq;
+        const at = Math.min(pos, seq.length);
+        setCaretPos(at + 1);
+        return [...seq.slice(0, at), drag.note, ...seq.slice(at)];
+      });
+    } else {
+      setCustomSeq(seq => {
+        const from = drag.from;
+        let to = pos > from ? pos - 1 : pos; // removal shifts indices after `from`
+        const without = seq.filter((_, j) => j !== from);
+        setCaretPos(to + 1);
+        return [...without.slice(0, to), seq[from], ...without.slice(to)];
+      });
+    }
+    stop();
+  }
   // Shared technique picker: radios in a 3-per-row grid (2×3 for the full
   // six; gliss's three fill a single row).
+  // One collapsible help topic: a header button that toggles its body. Sub-topics
+  // inside a section stay as plain <strong> lead-ins (e.g. Custom order sits
+  // under Scale / Arpeggio; the chord limits sit under Chord / Live).
+  const helpSec = (key, title, body) => {
+    const open = openHelpSecs.has(key);
+    return (
+      <div style={{ borderTop:`1px solid ${t.helpBdr}` }}>
+        <button
+          onClick={() => setOpenHelpSecs(s => {
+            const n = new Set(s);
+            if (n.has(key)) n.delete(key); else n.add(key);
+            return n;
+          })}
+          style={{ width:"100%", textAlign:"left", background:"none", border:"none",
+            cursor:"pointer", padding:"9px 2px", fontSize:14, fontWeight:600,
+            color:t.text, display:"flex", gap:7, alignItems:"center", lineHeight:1.4 }}
+        >
+          <span style={{ fontSize:11, width:9, flexShrink:0 }}>{open ? "▾" : "▸"}</span>
+          {title}
+        </button>
+        {open && <div style={{ padding:"0 2px 12px 18px" }}>{body}</div>}
+      </div>
+    );
+  };
+
   const techPicker = (group, value, choose, opts) => (
     <div style={{ display:"grid", gridTemplateColumns:"repeat(3, auto)", gap:"6px 14px",
       justifyContent:"start", marginBottom:8 }}>
@@ -2943,6 +3199,9 @@ export default function HarpGliss() {
     setBothStart("up");
     setScaleStart(IDX["4C"]);
     setOctaveCount(1);
+    setScaleOrderMode("scale");
+    setCustomSeq([]);
+    setCaretPos(0);
     setChordTech("default");
     setScaleTech("default");
     setGlissTech("default");
@@ -3415,7 +3674,8 @@ export default function HarpGliss() {
       {/* Play */}
       {(() => {
         const noChordNotes = mode === "chord" && chordSel.size === 0 && !playing;
-        const noScaleNotes = mode === "scale" && !arpMask.some(Boolean) && !playing;
+        const noScaleNotes = mode === "scale" && !playing &&
+          (scaleOrderMode === "custom" ? customSeq.length === 0 : !arpMask.some(Boolean));
         // Live play: the grid itself is the instrument, so scheduled playback
         // is irrelevant (setLive already stopped anything running).
         const liveOn = mode === "chord" && liveMode;
@@ -3474,27 +3734,49 @@ export default function HarpGliss() {
       </div>
       {/* Help */}
       {showHelp && (
-        <div style={{ background:t.help, border:`1px solid ${t.helpBdr}`, borderRadius:6, padding:12, marginBottom:12, fontSize:14, lineHeight:1.6 }}>
-          <strong>Octave numbering:</strong> Harp octave numbers follow string numbering; they decrease as pitch rises, and each octave begins at F. Ascending from middle: 4C → 4D → 4E → 3F → 3G → 3A → 3B → 3C…
-          <StringChart dark={darkMode} wide={wide} />
-          <div style={{ fontSize:13, color:t.text4, marginTop:2, marginBottom:10 }}>
-            The 47 strings of a concert grand pedal harp, lowest (7C, left) to highest (0G, right).
-          </div>
-          <strong>Pedals:</strong> D C B = left foot, E F G A = right foot. Up = flat (♭), middle = natural (♮), down = sharp (♯). Click to move the pedal one notch (it bounces: up, middle, down, middle, up…), or drag it directly.<br/><br/>
-          <strong>Live pedalling:</strong> Pedal changes apply immediately, even during playback.<br/><br/>
-          <strong>Reset:</strong> Restores all settings (pedals, mode, direction, notes, speed, tuning) to their defaults, but keeps your saved configurations. <strong>Reset all</strong> does the same and also deletes your saved configurations; it asks for a second tap to confirm.<br/><br/>
-          <strong>Enharmonic doublings:</strong> Some presets (pentatonics, whole tone) set two adjacent strings to the same pitch; e.g. B♯=C. This is how harpists achieve scales of fewer than seven notes in a glissando; the doubled notes reinforce the sound. A few root names (e.g. D♯ major pentatonic, G♭ blues minor) simply name the string the run starts on, where the configuration offers no theoretically cleaner enharmonic root.<br/><br/>
-          <strong>Out-of-order configurations:</strong> A glissando sweeps the strings in playing order, so its pitches should climb steadily. A few enharmonic spellings break this: a sharpened E♯ sounds above the following F♭, or a B♯ above the next C♭ at the octave change, so the run dips mid-sweep. The default for each scale always avoids this. Configurations that don't are still kept; the effect can be striking, but are listed last among a root's alternates and marked ⚠ with the pitch class that falls out of order, e.g. ⚠E♯ (or ⚠E♯,B♯ when both octave breaks invert).<br/><br/>
-          <strong>7C and 7D:</strong> On a real concert grand these two strings are not connected to the pedal mechanism and must be pre-tuned by hand. In this app they follow the pedals for convenience.<br/><br/>
-          <strong>Saving &amp; sharing:</strong> Saved configurations are stored on your own device and persist between visits; except if you choose "Reset all" or clear your browser data, which removes them. To save a copy on your local disk or to share with other users, use Export. Each appears under "My configurations," where you can rename (✎) or delete (🗑) it; saving a name you've already used asks whether to overwrite. <strong>Export</strong> lets you tick which configurations to download as a small file you can back up or send to another user; <strong>Import</strong> loads configurations from such a file. On import, identical configurations you already have are skipped, and one whose name you already use for a <em>different</em> setting is automatically renamed.<br/><br/>
-          <strong>Modes:</strong> <em>Scale / Arpeggio</em> plays a run from your start note. The eight buttons are the scale degrees (1–7 plus the octave, 1*): with all lit it's a full scale, and deselecting some makes an arpeggio; for example, leave 1, 3, 5 and 1* for a triad. The <em>Range</em> dropdown sets how many octaves it spans (the choices adapt to how much room the start note leaves before the edge of the harp), and your chosen degree pattern repeats in each octave. <em>Speed</em> sets how many notes play per second. <em>Chord / Live</em> displays 47 strings as a grid. In Chord mode, notes are selected, then can be either played as a block chord by default, or arpeggiated by checking <em>Break chord</em>, following the direction buttons and its own speed. Switching the panel to Live turns the grid into a playable interface: click or tap notes to play them immediately, with multi-touch on touch screens. <em>Glissando</em> sweeps every string between two notes.<br/><br/>
-          <strong>Sound techniques:</strong> Each mode lets you pick how the strings are played, and the notation preview marks the choice with its standard sign. <em>Pluck</em> is the ordinary plucked tone. <em>Harmonics</em> ring an octave above the string that sounds them, soft and bell-like; the staff displays where the note is played rather than where it sounds, from 6E to 2F. <em>Près de la table</em> is played close to the soundboard for a thinner, guitar-like tone. <em>Nail</em> is plucked with the fingernail for a bright, sharp attack. <em>Xylophonic</em> is plucked while the far end of the string is damped, giving a wooden, muted, dry and percussive sound, played from 5A to 0G. <em>Étouffé</em> is plucked and immediately muffled for a dry, staccato note. Glissando offers only the techniques that suit sliding: Single (one finger), Près de la table, and Nail. Each mode remembers its own technique.<br/><br/>
-          <strong>Loop:</strong> When ticked (the default), playback repeats with the given gap between passes; untick it to play a single pass and stop. For the Both direction that means one full out-and-back pass. Scale/Arpeggio and Glissando allow a gap from 0 to 20 seconds (0 runs straight into the next pass at the playing speed, with no pause); Chord uses 1 to 20 seconds. Each mode remembers its own value. With Continuous set to Yes, a ticked Loop repeats seamlessly and the interval is ignored.<br/><br/>
-          <strong>Continuous (Both direction):</strong> <em>Yes</em> ping-pongs seamlessly with no pause and neither turnaround note repeated; <em>No</em> plays one full out-and-back pass, then pauses for the Loop interval before repeating. Each mode remembers its own choice.<br/><br/>
-          <strong>Note limit:</strong> A harpist plays with four fingers of each hand (the little fingers are not used), so only so many strings can be sounded at once. In Chord mode, ticking <em>Enforce: Note limit</em> caps the selection and greys out the rest once you reach the cap; untick it to select freely. The cap depends on the technique, and was set empirically from what the hand can realistically manage rather than by a strict rule.<br/><br/>
-          <strong>Hand span limit:</strong> Available when the note limit is enforced. It bounds how far apart the notes in one hand can sit, and how the two hands can split the selection. The reachable spans were calibrated by testing on a real harp rather than computed, and they vary by technique. Strings that no legal two-hand arrangement could still include are greyed out. These figures are approximations rather than strict rules: hands differ from player to player, so treat them as a guide.<br/><br/>
-          <strong>Snap to root:</strong> When on, pedalling into a configuration that matches a known scale automatically moves the start (and end) notes to that scale's root. Turn it off to pedal around freely without the notes jumping. Choosing a preset from the menu always snaps, regardless of this setting.<br/><br/>
-          <strong>Sound:</strong> The plucked tone is the sampled concert harp from the Versilian Community Sample Library (VCSL, CC0). Harmonics, près de la table, nail, xylophonic, and étouffé are samples recorded on a concert harp by the author (CC0). The reference pitch is adjustable (A = 430 to 450 Hz). In Advanced settings you can set the sostenuto length and the number of simultaneous voices; these do not affect Étouffé, which manages its own damping.
+        <div style={{ background:t.help, border:`1px solid ${t.helpBdr}`, borderRadius:6, padding:"2px 12px 4px", marginBottom:12, fontSize:14, lineHeight:1.6 }}>
+          {helpSec("octaves", "Octave numbering", <>
+            Harp octave numbers follow string numbering; they decrease as pitch rises, and each octave begins at F. Ascending from middle: 4C → 4D → 4E → 3F → 3G → 3A → 3B → 3C…
+            <StringChart dark={darkMode} wide={wide} />
+            <div style={{ fontSize:13, color:t.text4, marginTop:2 }}>
+              The 47 strings of a concert grand pedal harp, lowest (7C, left) to highest (0G, right).
+            </div>
+          </>)}
+          {helpSec("pedals", "Pedals and presets", <>
+            D C B = left foot, E F G A = right foot. Up = flat (♭), middle = natural (♮), down = sharp (♯). Click to move the pedal one notch (it bounces: up, middle, down, middle, up…), or drag it directly.<br/><br/>
+            <strong>Live pedalling:</strong> Pedal changes apply immediately, even during playback.<br/><br/>
+            <strong>7C and 7D:</strong> On a real concert grand these two strings are not connected to the pedal mechanism and must be pre-tuned by hand. In this app they follow the pedals for convenience.<br/><br/>
+            <strong>Snap to root:</strong> When on, pedalling into a configuration that matches a known scale automatically moves the start (and end) notes to that scale's root. Turn it off to pedal around freely without the notes jumping. Choosing a preset from the menu always snaps, regardless of this setting.<br/><br/>
+            <strong>Enharmonic doublings:</strong> Some presets (pentatonics, whole tone) set two adjacent strings to the same pitch; e.g. B♯=C. This is how harpists achieve scales of fewer than seven notes in a glissando; the doubled notes reinforce the sound. A few root names (e.g. D♯ major pentatonic, G♭ blues minor) simply name the string the run starts on, where the configuration offers no theoretically cleaner enharmonic root.<br/><br/>
+            <strong>Out-of-order configurations:</strong> A glissando slides the strings in playing order, so its pitches should climb steadily. A few enharmonic spellings break this: a sharpened E♯ sounds above the following F♭, or a B♯ above the next C♭ at the octave change, so the run dips mid-sweep. The default for each scale always avoids this. Configurations that don't are still kept; the effect can be striking, but are listed last among a root's alternates and marked ⚠ with the pitch class that falls out of order, e.g. ⚠E♯ (or ⚠E♯,B♯ when both octave breaks invert).
+          </>)}
+          {helpSec("scale", "Scale / Arpeggio", <>
+            Plays a run from your start note. The eight buttons are the scale degrees (1–7 plus the octave, 1*): with all lit it's a full scale, and deselecting some makes an arpeggio; for example, leave 1, 3, 5 and 1* for a triad. The <em>Range</em> dropdown sets how many octaves it spans (the choices adapt to how much room the start note leaves before the edge of the harp), and your chosen degree pattern repeats in each octave. <em>Speed</em> sets how many notes play per second.<br/><br/>
+            <strong>Custom order:</strong> In Scale / Arpeggio, the toggle above the start note switches between <em>Scale order</em>, which plays your chosen degrees in scale order, and <em>Custom order</em>, where you set the order yourself. Tap the note buttons to add notes one at a time; each appears as a chip showing the note and its octave, and you may repeat the same note as often as you like, up to 64. A blinking caret marks where the next note will go, and tapping any gap between chips moves it there. To edit, use ⌫ to delete the note before the caret, × on a chip to remove that note, or <em>Clear</em> to start again. You can also drag a chip to a new position, or drag a note button straight into the strip to drop it exactly where you want it. Pedalling still respells the notes, as it does everywhere.<br/><br/>
+            <strong>Custom order octaves:</strong> Your pattern repeats in each octave, and the direction buttons set which way those octaves stack: <em>Asc.</em> builds upward from your pattern, <em>Desc.</em> downward. <em>Both</em> bounces over the octaves, so a three octave pass runs first, second, third, second, first with the pattern always played forwards; at one octave there is no bounce. The <em>Range</em> choices adapt to how much room your pattern leaves before the edge of the harp, and update as you add or remove notes. Speed, Loop, Continuous, technique and tuning all behave as they do in Scale order. A note lying outside the current technique's playable range is shown struck through and is skipped.
+          </>)}
+          {helpSec("chord", "Chord / Live", <>
+            Displays 47 strings as a grid. In Chord mode, notes are selected, then can be either played as a block chord by default, or arpeggiated by checking <em>Break chord</em>, following the direction buttons and its own speed. Switching the panel to Live turns the grid into a playable interface: click or tap notes to play them immediately, with multi-touch on touch screens.<br/><br/>
+            <strong>Note limit:</strong> A harpist plays with four fingers of each hand (the little fingers are not used), so only so many strings can be sounded at once. In Chord mode, ticking <em>Enforce: Note limit</em> caps the selection and greys out the rest once you reach the cap; untick it to select freely. The cap depends on the technique, and was set empirically from what the hand can realistically manage rather than by a strict rule.<br/><br/>
+            <strong>Hand span limit:</strong> Available when the note limit is enforced. It bounds how far apart the notes in one hand can sit, and how the two hands can split the selection. The reachable spans were calibrated by testing on a real harp rather than computed, and they vary by technique. Strings that no legal two-hand arrangement could still include are greyed out. These figures are approximations rather than strict rules: hands differ from player to player, so treat them as a guide.
+          </>)}
+          {helpSec("gliss", "Glissando", <>
+            Slides every string between two notes. Refer to the Pedals and presets section for information on enharmonic doublings and out-of-order configurations. 
+          </>)}
+          {helpSec("techniques", "Sound techniques", <>
+            Each mode lets you pick how the strings are played, and the notation preview marks the choice with its standard sign. <em>Pluck</em> is the ordinary plucked tone. <em>Harmonics</em> ring an octave above the string that sounds them, soft and bell-like; the staff displays where the note is played rather than where it sounds, from 6E to 2F. <em>Près de la table</em> is played close to the soundboard for a thinner, guitar-like tone. <em>Nail</em> is plucked with the fingernail for a bright, sharp attack. <em>Xylophonic</em> is plucked while the far end of the string is damped, giving a wooden, muted, dry and percussive sound, played from 5A to 0G. <em>Étouffé</em> is plucked and immediately muffled for a dry, staccato note. Glissando offers only the techniques that suit sliding: Single (one finger), Près de la table, and Nail. Each mode remembers its own technique.
+          </>)}
+          {helpSec("playback", "Loop and Continuous", <>
+            <strong>Loop:</strong> When ticked (the default), playback repeats with the given gap between passes; untick it to play a single pass and stop. For the Both direction that means one full out-and-back pass. Scale/Arpeggio and Glissando allow a gap from 0 to 20 seconds (0 runs straight into the next pass at the playing speed, with no pause); Chord uses 1 to 20 seconds. Each mode remembers its own value. With Continuous set to Yes, a ticked Loop repeats seamlessly and the interval is ignored.<br/><br/>
+            <strong>Continuous (Both direction):</strong> <em>Yes</em> ping-pongs seamlessly with no pause and neither turnaround note repeated; <em>No</em> plays one full out-and-back pass, then pauses for the Loop interval before repeating. Each mode remembers its own choice.
+          </>)}
+          {helpSec("presets", "Saving, sharing and reset", <>
+            <strong>Saving &amp; sharing:</strong> Saved custom pedal and root note configurations are stored on your own device and persist between visits; except if you choose "Reset all" or clear your browser data, which removes them. To save a copy on your local disk or to share with other users, use Export. Each appears under "My configurations," where you can rename (✎) or delete (🗑) it; saving a name you've already used asks whether to overwrite. <strong>Export</strong> lets you tick which configurations to download as a small file you can back up or send to another user; <strong>Import</strong> loads configurations from such a file. On import, identical configurations you already have are skipped, and one whose name you already use for a <em>different</em> setting is automatically renamed.<br/><br/>
+            <strong>Reset:</strong> Restores all settings (pedals, mode, direction, notes, speed, tuning) to their defaults, but keeps your saved custom configurations. <strong>Reset all</strong> does the same and also deletes your saved configurations; it asks for a second tap to confirm.
+          </>)}
+          {helpSec("sound", "Sound and tuning", <>
+            The plucked tone is the sampled concert harp from the Versilian Community Sample Library (VCSL, CC0). Harmonics, près de la table, nail, xylophonic, and étouffé are samples recorded on a concert harp by the author (CC0). The reference pitch is adjustable (A = 430 to 450 Hz). In Advanced settings you can set the sostenuto length and the number of simultaneous voices; these do not affect Étouffé, which manages its own damping.
+          </>)}
         </div>
       )}
 
@@ -3553,14 +3835,20 @@ export default function HarpGliss() {
         {/* Direction is ignored (and dimmed) for an unbroken chord and in Live play. */}
         {(() => {
           const dirOff = mode === "chord" && (liveMode || !breakChord);
+          // In Custom order, Asc/Desc stay selectable even at 1 octave: though
+          // the single-octave playback is the same either way, the direction
+          // sets which way octaves *could* stack, and so which start notes and
+          // octave counts the dropdowns offer — greying them would trap a
+          // 1G-start pattern at one octave with no way to switch to Desc.
+          const ascDescOff = dirOff;
           // A broken nail chord can't bounce back: Both is out for Nail in
           // Chord mode only (Scale/Arp and Gliss keep it).
           const bothOff = dirOff || (mode === "chord" && chordTech === "nail");
           const dirSeg = (off) => (active) => ({ ...seg(active), ...(off ? { opacity:0.4, cursor:"default" } : {}) });
           return (
             <div style={{ display:"flex", border:`1.5px solid ${t.bdr2}`, borderRadius:6, overflow:"hidden", opacity: dirOff ? 0.75 : 1 }}>
-              <button disabled={dirOff} onClick={() => { setDirection("asc"); stop(); }} style={dirSeg(dirOff)(direction==="asc")}>{segLabel("↑ Asc.", direction==="asc")}</button>
-              <button disabled={dirOff} onClick={() => { setDirection("desc"); stop(); }} style={dirSeg(dirOff)(direction==="desc")}>{segLabel("↓ Desc.", direction==="desc")}</button>
+              <button disabled={ascDescOff} onClick={() => { setDirection("asc"); stop(); }} style={dirSeg(ascDescOff)(direction==="asc")}>{segLabel("↑ Asc.", direction==="asc")}</button>
+              <button disabled={ascDescOff} onClick={() => { setDirection("desc"); stop(); }} style={dirSeg(ascDescOff)(direction==="desc")}>{segLabel("↓ Desc.", direction==="desc")}</button>
               <button disabled={bothOff} onClick={() => { setDirection("both"); stop(); }} style={dirSeg(bothOff)(direction==="both")}>{segLabel("⇅ Both", direction==="both")}</button>
             </div>
           );
@@ -3622,8 +3910,19 @@ export default function HarpGliss() {
           </div>
         )}
 
+      </div>{/* end presets + resets toolbar */}
+
+      {/* Responsive body: two columns on wide screens, single column on mobile.
+          The presets menu opens as the first item of the left column (above the
+          pedal card) rather than as a full-width block, so on wide screens the
+          right column stays put instead of being pushed down, and the pedals
+          remain visible while browsing preset chips. */}
+      <div style={{ display:"flex", flexDirection: wide ? "row" : "column", gap: wide ? 22 : 0, alignItems:"flex-start" }}>
+      <div ref={leftColRef} style={{ flex: wide ? "1 1 0" : "0 1 auto", minWidth:0, width: wide ? "auto" : "100%" }}>
+
         {showPresets && (
-          <div style={{ background:t.card, border:`1px solid ${t.bdr}`, borderRadius:6, padding:8 }}>
+          <div style={{ background:t.card, border:`1px solid ${t.bdr}`, borderRadius:6, padding:8,
+            marginBottom:12, maxHeight: wide ? 420 : 460, overflowY:"auto" }}>
             {/* User presets; placed first so the Export checkboxes are immediately visible */}
             <div style={{ marginBottom:4 }}>
               <button
@@ -3826,11 +4125,6 @@ export default function HarpGliss() {
             })()}
           </div>
         )}
-      </div>
-
-      {/* Responsive body: two columns on wide screens, single column on mobile */}
-      <div style={{ display:"flex", flexDirection: wide ? "row" : "column", gap: wide ? 22 : 0, alignItems:"flex-start" }}>
-      <div style={{ flex: wide ? "1 1 0" : "0 1 auto", minWidth:0, width: wide ? "auto" : "100%" }}>
 
       <div style={{ fontSize:12, lineHeight:"18px", color:t.text3, marginBottom:12, minHeight:18 }}>
         {presetMatches.length === 0
@@ -3868,9 +4162,11 @@ export default function HarpGliss() {
         </div>
       </div>
 
-      {wide && playBlock}
+      {/* Play + status go to whichever column is shorter (see the playSide
+          layout effect); the wrapper is what that effect measures. */}
+      {wide && playSide === "left" && <div ref={playBlockRef}>{playBlock}</div>}
       </div>{/* end config column */}
-      <div style={{ flex: wide ? "1 1 0" : "0 1 auto", minWidth:0, width: wide ? "auto" : "100%" }}>
+      <div ref={rightColRef} style={{ flex: wide ? "1 1 0" : "0 1 auto", minWidth:0, width: wide ? "auto" : "100%" }}>
 
       {/* Mode controls */}
       <div style={{ background:t.card, border:`1px solid ${t.bdr}`, borderRadius:8, padding:14, marginBottom:12 }}>
@@ -3879,6 +4175,14 @@ export default function HarpGliss() {
             <input type="checkbox" checked={rootSnap} onChange={e => setRootSnap(e.target.checked)} />
             Snap to root when pedalling into a known scale
           </label>
+        )}
+        {mode === "scale" && (
+          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10, flexWrap:"wrap" }}>
+            <div style={{ display:"flex", border:`1.5px solid ${t.bdr2}`, borderRadius:6, overflow:"hidden" }}>
+              <button onClick={() => chooseScaleOrder("scale")} style={seg(scaleOrderMode === "scale")}>{segLabel("Scale order", scaleOrderMode === "scale")}</button>
+              <button onClick={() => chooseScaleOrder("custom")} style={seg(scaleOrderMode === "custom")}>{segLabel("Custom order", scaleOrderMode === "custom")}</button>
+            </div>
+          </div>
         )}
         {mode === "scale" && (
           <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10, flexWrap:"wrap" }}>
@@ -3893,10 +4197,13 @@ export default function HarpGliss() {
               ))}
             </select>
             <label style={{ fontSize:12, color:t.text3 }}>Range:</label>
+            {/* Fixed min-width sized for the widest label ("3 octaves") so the
+                control doesn't shrink when the start note only allows one
+                octave and "1 octave" is the sole option. */}
             <select
               value={octaveCount}
               onChange={e => setOctaveCount(Number(e.target.value))}
-              style={inputStyle}
+              style={{ ...inputStyle, minWidth:104 }}
             >
               {rng(1, maxOctaves).map(n => (
                 <option key={n} value={n}>{n} octave{n > 1 ? "s" : ""}</option>
@@ -3915,7 +4222,7 @@ export default function HarpGliss() {
             </label>
             <label style={{ display:"flex", gap:5, alignItems:"center", fontSize:12, color:t.text2, cursor:"pointer" }}>
               <input type="radio" name="bothStart" checked={bothStart === "down"}
-                onChange={() => { setBothStart("down"); setScaleStart(v => Math.min(Math.max(v, RANGES.scaleDesc[0]), RANGES.scaleDesc[1])); stop(); }} />
+                onChange={() => { setBothStart("down"); const r = scaleOrderMode === "custom" ? RANGES.scaleAsc : RANGES.scaleDesc; setScaleStart(v => Math.min(Math.max(v, r[0]), r[1])); stop(); }} />
               Down first ↓↑
             </label>
           </div>
@@ -3923,38 +4230,139 @@ export default function HarpGliss() {
 
         {mode === "scale" && direction === "both" && continuousRow()}
 
-        {mode === "scale" && (
+        {mode === "scale" && (() => {
+          const custom = scaleOrderMode === "custom";
+          const full = customSeq.length >= CUSTOM_MAX;
+          return (
           <div style={{ marginBottom:10 }}>
             <div style={{ display:"flex", gap:4, justifyContent:"space-between" }}>
               {[0,1,2,3,4,5,6,7].map(d => {
-                // Degree notes run upward from the start note when the pass
-                // ascends, and downward (one octave below the start, up to the
-                // start) when it descends — matching what the sequence builder
-                // plays, so each button shows the note its toggle controls.
-                const stringIdx = scaleDescLogic ? scaleStart - 7 + d : scaleStart + d;
+                // Scale order: each degree button toggles on/off and shows the
+                // note it controls (upward from the start, or downward for a
+                // descending pass). Custom order: buttons are momentary — a tap
+                // appends that degree's note (taken at the start octave, always
+                // ascending) to the sequence — so they never look "selected".
+                const stringIdx = custom ? scaleStart + d
+                  : (scaleDescLogic ? scaleStart - 7 + d : scaleStart + d);
                 const s = STRINGS[Math.max(0, Math.min(stringIdx, STRINGS.length - 1))];
                 const name = s ? `${s.letter}${accSymbol(pedals[s.letter])}` : "–";
                 const degLabel = d === 7 ? "1*" : String(d + 1);
-                const on = arpMask[d];
+                const on = !custom && arpMask[d];
+                // Custom order: a degree whose start-octave note is past the
+                // technique's top can never sound (the deeper octaves stack
+                // downward), so disable it rather than let it add a dead chip.
+                const outOfRange = custom && scaleStart + d > scaleHi;
+                const disabled = custom && (full || outOfRange);
                 return (
                   <button
                     key={d}
-                    onClick={() => setArpMask(m => m.map((v, i) => i === d ? !v : v))}
+                    disabled={disabled}
+                    onPointerDown={custom && !disabled ? (e => onSeqPointerDown(e, { kind: "btn", note: scaleStart + d })) : undefined}
+                    onPointerMove={custom ? onSeqPointerMove : undefined}
+                    onPointerUp={custom ? onSeqPointerUp : undefined}
+                    // Tap inserts at the caret; a drag (handled above) inserts at
+                    // the drop slot and sets suppressClick so this doesn't also fire.
+                    onClick={() => {
+                      if (!custom) return setArpMask(m => m.map((v, i) => i === d ? !v : v));
+                      if (suppressClickRef.current) { suppressClickRef.current = false; return; }
+                      insertNote(scaleStart + d);
+                    }}
                     style={{
-                      flex:1, padding:"6px 2px", borderRadius:5, cursor:"pointer",
-                      border:"1.5px solid " + (on ? t.grn : t.bdr),
-                      background: on ? t.grnLt3 : t.card3,
+                      flex:1, padding:"6px 2px", borderRadius:5, cursor: disabled ? "default" : "pointer",
+                      touchAction: custom ? "none" : "auto", // let a touch-drag start on the button
+                      // Scale order buttons are toggles (green when on). Custom
+                      // order buttons are momentary actions, so they get plain
+                      // strong "clickable" styling instead of the dimmed off-look.
+                      border:"1.5px solid " + (on ? t.grn : custom ? t.bdr2 : t.bdr),
+                      background: on ? t.grnLt3 : t.card, opacity: disabled ? 0.4 : 1,
                       display:"flex", flexDirection:"column", alignItems:"center", gap:2,
                     }}
                   >
-                    <span style={{ fontSize:13, fontWeight:600, lineHeight:1.4, color: on ? t.grnTx2 : t.text6 }}>{name}</span>
-                    <span style={{ fontSize:10, color: on ? t.grnTx3 : t.bdrS }}>{degLabel}</span>
+                    <span style={{ fontSize:13, fontWeight:600, lineHeight:1.4, color: on ? t.grnTx2 : custom ? t.text : t.text6 }}>{name}</span>
+                    <span style={{ fontSize:10, color: on ? t.grnTx3 : custom ? t.text3 : t.bdrS }}>{degLabel}</span>
                   </button>
                 );
               })}
             </div>
           </div>
-        )}
+          );
+        })()}
+
+        {/* Custom-order sequence strip: one horizontally-scrolling row of note
+            chips with a blinking insertion caret. Tap a gap to move the caret,
+            tap a chip's × to delete it; ⌫ deletes before the caret, Clear
+            empties. The strip never wraps, so a long sequence scrolls instead
+            of pushing the rest of the panel around. */}
+        {mode === "scale" && scaleOrderMode === "custom" && (() => {
+          const dragging = dropPos !== null;
+          // A gap is drawn as: the drop indicator during a drag, else the
+          // blinking caret at the insertion point, else a thin clickable slot.
+          const caret = (pos) => {
+            const isDrop = dragging && dropPos === pos;
+            const isCaret = !dragging && pos === caretPos;
+            return (
+              <span key={`c${pos}`} onClick={() => setCaretPos(pos)}
+                style={{ display:"inline-block", width: isDrop ? 3 : isCaret ? 2 : 6, alignSelf:"stretch",
+                  minHeight:26, cursor:"pointer", flexShrink:0,
+                  background: isDrop || isCaret ? t.accent : "transparent",
+                  borderRadius:1, animation: isCaret ? "blink 1s step-start infinite" : "none" }}
+                aria-label="insertion point"/>
+            );
+          };
+          const chips = [];
+          chips.push(caret(0));
+          customSeq.forEach((noteIdx, i) => {
+            const beingDragged = dragging && seqDragRef.current &&
+              seqDragRef.current.kind === "chip" && seqDragRef.current.from === i;
+            // Stranded by a technique switch: this string is outside the current
+            // technique's playable range, so it's struck through and skipped at
+            // playback, but kept (and still draggable/removable) rather than
+            // silently deleted from a sequence you built by hand.
+            const unplayable = noteIdx < scaleLo || noteIdx > scaleHi;
+            chips.push(
+              <span key={`ch${i}`} data-chip
+                title={unplayable ? "Outside technique range" : undefined}
+                style={{ display:"inline-flex", alignItems:"center", gap:3,
+                padding:"2px 4px 2px 7px", borderRadius:5,
+                background: unplayable ? t.card3 : t.grnLt3,
+                border:`1px solid ${unplayable ? t.bdr2 : t.grn}`,
+                color: unplayable ? t.text6 : t.grnTx2,
+                textDecoration: unplayable ? "line-through" : "none",
+                fontSize:12.5, fontWeight:600, whiteSpace:"nowrap", flexShrink:0,
+                opacity: beingDragged ? 0.4 : unplayable ? 0.7 : 1 }}>
+                {/* The note label is the drag handle; the × stays a plain click. */}
+                <span onPointerDown={e => onSeqPointerDown(e, { kind: "chip", from: i })}
+                  onPointerMove={onSeqPointerMove} onPointerUp={onSeqPointerUp}
+                  style={{ cursor:"grab", touchAction:"none", userSelect:"none" }}>
+                  {noteLabel(Math.max(0, Math.min(noteIdx, 46)), pedals)}
+                </span>
+                <button onClick={() => removeAt(i)} title="Remove"
+                  style={{ border:"none", background:"none", cursor:"pointer", color:t.grnTx3,
+                    fontSize:13, lineHeight:1, padding:"0 1px" }}>×</button>
+              </span>
+            );
+            chips.push(caret(i + 1));
+          });
+          return (
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
+              {/* Fixed height (not minHeight) with a thin scrollbar so the row
+                  never grows or jumps when the horizontal scrollbar appears. */}
+              <div ref={stripRef} className="seq-strip" style={{ flex:1, minWidth:0, display:"flex", alignItems:"center", gap:2,
+                overflowX:"auto", padding:"4px 6px", height:40, border:`1px solid ${t.bdr2}`,
+                borderRadius:6, background:t.card3 }}>
+                {customSeq.length === 0
+                  ? <span style={{ fontSize:12, color:t.text5, fontStyle:"italic", whiteSpace:"nowrap" }}>Tap notes to build a sequence</span>
+                  : chips}
+              </div>
+              <button onClick={backspaceSeq} disabled={caretPos === 0} title="Delete before caret"
+                style={{ ...btn(false), fontSize:14, padding:"4px 9px", opacity: caretPos === 0 ? 0.4 : 1,
+                  cursor: caretPos === 0 ? "default" : "pointer" }}>⌫</button>
+              <button onClick={clearSeq} disabled={customSeq.length === 0}
+                style={{ ...btn(false), fontSize:11, padding:"5px 10px", opacity: customSeq.length === 0 ? 0.4 : 1,
+                  cursor: customSeq.length === 0 ? "default" : "pointer" }}>Clear</button>
+            </div>
+          );
+        })()}
 
         {mode === "scale" && techPicker("scaleTech", scaleTech, chooseScaleTech, TECH_OPTS)}
 
@@ -4337,9 +4745,9 @@ export default function HarpGliss() {
         })()}
       </div>
 
-      {/* Play + status render here in compact view (below the mode panel);
-          on wide screens the block moves under the pedal card instead. */}
-      {!wide && playBlock}
+      {/* Play + status render here in compact view (always, below the mode
+          panel) and on wide screens whenever this is the shorter column. */}
+      {(!wide || playSide === "right") && <div ref={playBlockRef}>{playBlock}</div>}
 
       </div>{/* end playback column */}
       </div>{/* end responsive body */}
