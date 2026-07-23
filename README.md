@@ -8,7 +8,7 @@
 - **Scale / Arpeggio mode** plays toggleable scale degrees from any start note across a selectable number of octaves.
 - **Chord mode** plays notes selected from a 47-string grid, as a block chord or broken / arpeggiated, with an optional note limit and hand span limit.
 - **Live mode** turns the string grid into a playable instrument: tap or click strings to sound them, with multi-touch.
-- **Glissando mode** sweeps between two notes at 1 to 40 notes per second, ascending, descending, or both.
+- **Glissando mode** slides between two notes at 1 to 40 notes per second, ascending, descending, or both.
 - **Six playing techniques**: plucked tone, harmonics, près de la table, nail, xylophonic, and étouffé, each with its own sampled sound and playable range. Glissando offers the three that suit a sweep (plucked, près de la table, and nail).
 - **Notation preview** shows your current selection on a grand staff, marked with the standard sign for each technique.
 - **Live pedalling**: move a pedal mid-glissando and hear the pitch change immediately, just like the real instrument.
