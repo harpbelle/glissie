@@ -599,7 +599,7 @@ const MINOR_DEFS = [
   ["B", "B", "D major"], ["F♯", "F", "A major"], ["C♯", "C", "E major"],
   ["G♯", "G", "B major"], ["D♯", "D", "F♯ major"], ["A♯", "A", "C♯ major"],
 ];
-// Major pentatonics: canonical configs prefer root+5th enharmonic doubling.
+// Major pentatonics: canonical configs prefer more flats.
 // rootL = string of the "higher" enharmonic root within the detection window.
 const PENTATONIC_DEFS = [
   { chip: "C♭", rootL: "C", p: { D:-1, C:-1, B:0, E:-1, F:1, G:-1, A:-1 } },
@@ -1637,6 +1637,59 @@ const DEFAULT_PEDALS = { D:0, C:0, B:0, E:0, F:0, G:0, A:0 };
 const LS_PRESETS = "glissie.userPresets.v1";
 const LS_SETTINGS = "glissie.settings.v1";
 const CUSTOM_MAX = 64; // Custom order: soft cap so a stuck press can't build a runaway strip
+// Speed and loop-gap sliders step through a musical ladder rather than a fixed
+// increment: notes/s is heard as a ratio, so 1 → 1.5 is an obvious change while
+// 30 → 30.5 is inaudible. This is the 1-1.5-2-3 preferred-number series, so the
+// stops land on powers of two (the useful anchors: at 60 BPM 1/s is quarters,
+// 2/s eighths, 4/s sixteenths) with one sensible step between each. Typing
+// still reaches anything in between, to 2 decimal places.
+const SPEED_STOPS = [0.5, 0.75, 1, 1.5, 2, 3, 4, 6, 8, 12, 16, 24, 32, 40];
+const SPEED_MIN = 0.5;
+const LOOP_MIN = 0, LOOP_MAX = 20;
+// Reference pitch: typed to 2 dp (orchestras do tune to fractions of a Hz),
+// but the ▲▼ buttons move in whole Hz, which is the useful granularity.
+const TUNING_MIN = 430, TUNING_MAX = 450;
+// Loop gap has no slider, so its ▲▼ buttons are the only pointer-driven way to
+// change it (a keyboard, physical or on-screen, may not be available). They
+// walk this ladder: 0.25 s steps up to 4, then 0.5 to 8, then 1 s — fine where
+// a short gap is audibly different, coarse where it isn't. Typing still
+// reaches anything in between.
+const LOOP_STOPS = (() => {
+  const out = [], r2 = v => Math.round(v * 100) / 100;
+  for (let v = 0; v < 4; v += 0.25) out.push(r2(v));
+  for (let v = 4; v < 8; v += 0.5) out.push(r2(v));
+  for (let v = 8; v <= LOOP_MAX; v += 1) out.push(v);
+  return out;
+})();
+// Next/previous rung from an arbitrary value, so a typed off-ladder number
+// (say 1.37) steps onto the ladder rather than staying off it.
+const nextLoopStop = v => LOOP_STOPS.find(s => s > v + 1e-9) ?? LOOP_MAX;
+const prevLoopStop = v => [...LOOP_STOPS].reverse().find(s => s < v - 1e-9) ?? LOOP_MIN;
+// Chord floors at 0.5 s: a block chord at 0 would re-fire with no gap at all.
+const loopFloorFor = m => (m === "chord" ? 0.5 : LOOP_MIN);
+// Typed entry: keep digits and a single decimal point.
+const numField = s => s.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
+// Clamp a typed value and round to 2 dp, so float noise never reaches the
+// scheduler or gets echoed back into the field.
+function commitNum(raw, fallback, lo, hi) {
+  let v = parseFloat(raw);
+  if (!isFinite(v)) v = fallback;
+  return Math.round(Math.max(lo, Math.min(hi, v)) * 100) / 100;
+}
+// Slider position ↔ value over the ladder, clipped to this control's max. A
+// typed value off the ladder shows on the nearest stop without being changed.
+const stopsUpTo = max => {
+  const s = SPEED_STOPS.filter(v => v <= max + 1e-9);
+  // Always let the slider reach the control's own maximum, even when the
+  // ladder's next rung overshoots it (e.g. Scale caps at 20, ladder goes 16→24).
+  if (!s.length || s[s.length - 1] < max - 1e-9) s.push(max);
+  return s;
+};
+function nearestStopIndex(stops, v) {
+  let best = 0;
+  stops.forEach((s, i) => { if (Math.abs(s - v) < Math.abs(stops[best] - v)) best = i; });
+  return best;
+}
 const LS_DARK = "glissie.darkMode";
 function loadJSON(key, fallback) {
   try {
@@ -1916,8 +1969,8 @@ export default function HarpGliss() {
   const [spanByTech, setSpanByTech] = useState(() =>
     Object.fromEntries(Object.entries(TECH_LIMITS).map(([k, v]) => [k, v.spanDef])));
   const [handSpanField, setHandSpanField] = useState("10");
-  const [chordSpeed, setChordSpeed] = useState(15);    // broken-chord notes per second
-  const [chordSpeedField, setChordSpeedField] = useState("15");
+  const [chordSpeed, setChordSpeed] = useState(16);    // broken-chord notes/s; on the slider ladder
+  const [chordSpeedField, setChordSpeedField] = useState("16");
   // "Both" direction, per mode: continuous ping-pong (ends not repeated, no pause)
   // vs a full out-and-back pass with a 1 s pause between loops. Defaults preserve
   // each mode's original behaviour.
@@ -1938,12 +1991,12 @@ export default function HarpGliss() {
   const [scaleLoopSecField, setScaleLoopSecField] = useState("1");
   const [glissLoopSecField, setGlissLoopSecField] = useState("1");
   const [chordLoopSecField, setChordLoopSecField] = useState("4");
-  const [speed, setSpeed] = useState(15);
+  const [speed, setSpeed] = useState(16); // glissando notes/s; on the slider ladder
   // Scale/arpeggio notes per second, remembered per technique; sampled
   // techniques (harmonics, xylophonic, nail, étouffé) cap at 4 notes/s.
   const [scaleSpeedByTech, setScaleSpeedByTech] = useState(() =>
     Object.fromEntries(Object.keys(TECH_LIMITS).map(k => [k, 2])));
-  const [speedField, setSpeedField] = useState("15");
+  const [speedField, setSpeedField] = useState("16");
   const [scaleSpeedField, setScaleSpeedField] = useState("2");
   // Active per-technique values (chordTech/scaleTech select the slot).
   const handSpan = spanByTech[chordTech];
@@ -3057,6 +3110,43 @@ export default function HarpGliss() {
     );
   };
 
+  // Text field with ▲▼ built into its right edge, drawn as a single control:
+  // the wrapper carries the border and the input inside it is chrome-free.
+  // Native <input type="number"> can't serve here — its single `step` can't
+  // express a variable ladder, and mobile browsers hide the spinner entirely,
+  // which is exactly the pointer-only case these arrows exist for.
+  const stepperField = ({ value, onText, onCommit, onStep, atMin, atMax, disabled, width = 52, label }) => {
+    const arrow = (dir, glyph, off) => (
+      <button type="button" disabled={disabled || off}
+        aria-label={`${dir > 0 ? "Increase" : "Decrease"} ${label}`}
+        onClick={() => onStep(dir)}
+        style={{
+          border:"none", background:"transparent", padding:0, width:20, height:13,
+          display:"flex", alignItems:"center", justifyContent:"center",
+          fontSize:8, lineHeight:1, color:t.text3,
+          cursor: (disabled || off) ? "default" : "pointer",
+          opacity: (disabled || off) ? 0.35 : 1,
+        }}>
+        {glyph}
+      </button>
+    );
+    return (
+      <span style={{ display:"inline-flex", alignItems:"stretch", border:`1px solid ${t.bdr2}`,
+        borderRadius:4, background:t.card, overflow:"hidden", opacity: disabled ? 0.5 : 1 }}>
+        <input type="text" inputMode="decimal" value={value} disabled={disabled}
+          onChange={onText} onBlur={onCommit}
+          onKeyDown={e => e.key === "Enter" && e.currentTarget.blur()}
+          style={{ width, minWidth:0, border:"none", outline:"none", background:"transparent",
+            padding:"4px 6px", fontSize:13, textAlign:"center", color:t.text }}/>
+        <span style={{ display:"flex", flexDirection:"column", justifyContent:"center",
+          borderLeft:`1px solid ${t.bdr2}` }}>
+          {arrow(1, "▲", atMax)}
+          {arrow(-1, "▼", atMin)}
+        </span>
+      </span>
+    );
+  };
+
   const techPicker = (group, value, choose, opts) => (
     <div style={{ display:"grid", gridTemplateColumns:"repeat(3, auto)", gap:"6px 14px",
       justifyContent:"start", marginBottom:8 }}>
@@ -3138,16 +3228,20 @@ export default function HarpGliss() {
 
   // ── Tuning ──
   function commitTuning() {
-    let v = parseInt(tuningField, 10);
-    if (isNaN(v)) v = 440;
-    v = Math.max(430, Math.min(450, v));
+    const v = commitNum(tuningField, tuning, TUNING_MIN, TUNING_MAX);
     setTuning(v);
     setTuningField(String(v));
   }
+  // ▲▼ move in whole Hz, snapping a typed fractional value (442.3) onto the
+  // next whole number rather than carrying the fraction along (443.3).
+  function stepTuning(dir) {
+    const v = dir > 0 ? Math.floor(tuning) + 1 : Math.ceil(tuning) - 1;
+    const next = Math.max(TUNING_MIN, Math.min(TUNING_MAX, v));
+    setTuning(next);
+    setTuningField(String(next));
+  }
   function commitSpeed() {
-    let v = parseInt(speedField, 10);
-    if (isNaN(v)) v = speed;
-    v = Math.max(1, Math.min(40, v));
+    const v = commitNum(speedField, speed, SPEED_MIN, 40);
     setSpeed(v);
     setSpeedField(String(v));
   }
@@ -3164,27 +3258,19 @@ export default function HarpGliss() {
       mode === "scale" ? [scaleLoopSecField, scaleLoopSec, setScaleLoopSec, setScaleLoopSecField] :
       mode === "chord" ? [chordLoopSecField, chordLoopSec, setChordLoopSec, setChordLoopSecField] :
       [glissLoopSecField, glissLoopSec, setGlissLoopSec, setGlissLoopSecField];
-    let v = parseInt(field, 10);
-    if (isNaN(v)) v = sec;
-    // Scale/Arp and Gliss allow 0 s: the scheduler adds the interval on top of
-    // the normal 1/speed note gap, so 0 means the next pass simply continues
-    // at the playing tempo (no pause). Chord keeps a 1 s floor.
-    const lo = mode === "chord" ? 1 : 0;
-    v = Math.max(lo, Math.min(20, v));
+    // Scale/Arp and Gliss allow 0: the scheduler adds the interval on top of
+    // the normal 1/speed note gap, so 0 just continues at the playing tempo.
+    const v = commitNum(field, sec, loopFloorFor(mode), LOOP_MAX);
     setSec(v);
     setField(String(v));
   }
   function commitChordSpeed() {
-    let v = parseInt(chordSpeedField, 10);
-    if (isNaN(v)) v = chordSpeed;
-    v = Math.max(1, Math.min(40, v));
+    const v = commitNum(chordSpeedField, chordSpeed, SPEED_MIN, 40);
     setChordSpeed(v);
     setChordSpeedField(String(v));
   }
   function commitScaleSpeed() {
-    let v = parseInt(scaleSpeedField, 10);
-    if (isNaN(v)) v = scaleSpeed;
-    v = Math.max(1, Math.min(scaleSpeedMax, v));
+    const v = commitNum(scaleSpeedField, scaleSpeed, SPEED_MIN, scaleSpeedMax);
     setScaleSpeed(v);
     setScaleSpeedField(String(v));
   }
@@ -3209,7 +3295,7 @@ export default function HarpGliss() {
     setScaleSpeedField("2");
     setGlissStart(IDX["5C"]);
     setGlissEnd(IDX["2C"]);
-    setSpeed(15);
+    setSpeed(16);
     setChordSel(new Set());
     setLive(false);
     setBreakChord(false);
@@ -3217,7 +3303,7 @@ export default function HarpGliss() {
     setHandSpanOn(false);
     setSpanByTech(Object.fromEntries(Object.entries(TECH_LIMITS).map(([k, v]) => [k, v.spanDef])));
     setHandSpanField("10");
-    setChordSpeed(15);
+    setChordSpeed(16);
     setScaleContinuous(false);
     setGlissContinuous(true);
     setChordContinuous(false);
@@ -3618,6 +3704,23 @@ export default function HarpGliss() {
     mode === "scale" ? setScaleLoopSecField :
     mode === "chord" ? setChordLoopSecField :
     setGlissLoopSecField;
+  const loopSecValue =
+    mode === "scale" ? scaleLoopSec :
+    mode === "chord" ? chordLoopSec :
+    glissLoopSec;
+  const setLoopSecValue =
+    mode === "scale" ? setScaleLoopSec :
+    mode === "chord" ? setChordLoopSec :
+    setGlissLoopSec;
+  const loopFloor = loopFloorFor(mode);
+  // ▲▼ step to the next/previous ladder rung, clamped to this mode's range.
+  // The displayed field follows from the value via its sync effect.
+  const stepLoopSec = (dir) => {
+    const next = dir > 0 ? nextLoopStop(loopSecValue) : prevLoopStop(loopSecValue);
+    setLoopSecValue(Math.round(Math.max(loopFloor, Math.min(LOOP_MAX, next)) * 100) / 100);
+  };
+  const loopAtMin = loopSecValue <= loopFloor + 1e-9;
+  const loopAtMax = loopSecValue >= LOOP_MAX - 1e-9;
   // With Continuous = Yes (Both direction) a checked Loop repeats seamlessly,
   // so the interval is ignored — dim it. Block chords ignore direction (and
   // therefore Continuous) entirely, hence the breakChord condition.
@@ -3634,12 +3737,14 @@ export default function HarpGliss() {
         Loop
       </label>
       <label style={{ fontSize:12, color:t.text3, opacity: intervalOn ? 1 : 0.5 }}>every</label>
-      <input type="text" inputMode="numeric" value={loopSecField}
-        disabled={!intervalOn}
-        onChange={e => setLoopSecField(e.target.value.replace(/[^0-9]/g, ""))}
-        onBlur={commitLoopSec}
-        onKeyDown={e => e.key === "Enter" && e.currentTarget.blur()}
-        style={{ ...inputStyle, width:40, textAlign:"center", opacity: intervalOn ? 1 : 0.5 }}/>
+      {/* This field has no slider, so its built-in arrows are the only
+          pointer-only way to change it. */}
+      {stepperField({
+        value: loopSecField, onText: e => setLoopSecField(numField(e.target.value)),
+        onCommit: commitLoopSec, onStep: stepLoopSec,
+        atMin: loopAtMin, atMax: loopAtMax, disabled: !intervalOn,
+        width: 44, label: "loop interval",
+      })}
       <span style={{ fontSize:12, color:t.text3, opacity: intervalOn ? 1 : 0.5 }}>s</span>
     </div>
   );
@@ -3747,13 +3852,13 @@ export default function HarpGliss() {
             <strong>Live pedalling:</strong> Pedal changes apply immediately, even during playback.<br/><br/>
             <strong>7C and 7D:</strong> On a real concert grand these two strings are not connected to the pedal mechanism and must be pre-tuned by hand. In this app they follow the pedals for convenience.<br/><br/>
             <strong>Snap to root:</strong> When on, pedalling into a configuration that matches a known scale automatically moves the start (and end) notes to that scale's root. Turn it off to pedal around freely without the notes jumping. Choosing a preset from the menu always snaps, regardless of this setting.<br/><br/>
-            <strong>Enharmonic doublings:</strong> Some presets (pentatonics, whole tone) set two adjacent strings to the same pitch; e.g. B♯=C. This is how harpists achieve scales of fewer than seven notes in a glissando; the doubled notes reinforce the sound. A few root names (e.g. D♯ major pentatonic, G♭ blues minor) simply name the string the run starts on, where the configuration offers no theoretically cleaner enharmonic root.<br/><br/>
-            <strong>Out-of-order configurations:</strong> A glissando slides the strings in playing order, so its pitches should climb steadily. A few enharmonic spellings break this: a sharpened E♯ sounds above the following F♭, or a B♯ above the next C♭ at the octave change, so the run dips mid-sweep. The default for each scale always avoids this. Configurations that don't are still kept; the effect can be striking, but are listed last among a root's alternates and marked ⚠ with the pitch class that falls out of order, e.g. ⚠E♯ (or ⚠E♯,B♯ when both octave breaks invert).
+            <strong>Enharmonic doublings:</strong> Some presets (pentatonics, whole tone) set two adjacent strings to the same pitch; e.g. B♯=C. This is how scales of fewer than seven notes are achieved. A few root names (e.g. D♯ major pentatonic, G♭ blues minor) simply name the string the run starts on, where the configuration offers no theoretically cleaner enharmonic root.<br/><br/>
+            <strong>Out-of-order configurations:</strong> Most presets have note pitches in order. A few enharmonic spellings break this: a sharpened E♯ sounds above the following F♭, or a B♯ above the next C♭. The default for each scale always avoids this. Configurations that don't are still kept; the effect can be striking, but are listed last among a root's alternates and marked ⚠ with the pitch class that falls out of order, e.g. ⚠E♯, ⚠B♯, or ⚠E♯,B♯.
           </>)}
           {helpSec("scale", "Scale / Arpeggio", <>
             Plays a run from your start note. The eight buttons are the scale degrees (1–7 plus the octave, 1*): with all lit it's a full scale, and deselecting some makes an arpeggio; for example, leave 1, 3, 5 and 1* for a triad. The <em>Range</em> dropdown sets how many octaves it spans (the choices adapt to how much room the start note leaves before the edge of the harp), and your chosen degree pattern repeats in each octave. <em>Speed</em> sets how many notes play per second.<br/><br/>
-            <strong>Custom order:</strong> In Scale / Arpeggio, the toggle above the start note switches between <em>Scale order</em>, which plays your chosen degrees in scale order, and <em>Custom order</em>, where you set the order yourself. Tap the note buttons to add notes one at a time; each appears as a chip showing the note and its octave, and you may repeat the same note as often as you like, up to 64. A blinking caret marks where the next note will go, and tapping any gap between chips moves it there. To edit, use ⌫ to delete the note before the caret, × on a chip to remove that note, or <em>Clear</em> to start again. You can also drag a chip to a new position, or drag a note button straight into the strip to drop it exactly where you want it. Pedalling still respells the notes, as it does everywhere.<br/><br/>
-            <strong>Custom order octaves:</strong> Your pattern repeats in each octave, and the direction buttons set which way those octaves stack: <em>Asc.</em> builds upward from your pattern, <em>Desc.</em> downward. <em>Both</em> bounces over the octaves, so a three octave pass runs first, second, third, second, first with the pattern always played forwards; at one octave there is no bounce. The <em>Range</em> choices adapt to how much room your pattern leaves before the edge of the harp, and update as you add or remove notes. Speed, Loop, Continuous, technique and tuning all behave as they do in Scale order. A note lying outside the current technique's playable range is shown struck through and is skipped.
+            <strong>Custom order:</strong> In Scale / Arpeggio, the toggle above the start note switches between <em>Scale order</em>, which plays your chosen degrees in scale order, and <em>Custom order</em>, where you set the order yourself. Tap the note buttons to add notes one at a time; each appears as a chip showing the note and its octave, up to 64. A blinking caret marks where the next note will go, and tapping any gap between chips moves it there. To edit, use ⌫ to delete the note before the caret, × on a chip to remove that note, or <em>Clear</em> to start again. You can also drag a chip to a new position, or drag a note button straight into the strip to drop it exactly where you want it. Pedalling still respells the notes, as it does everywhere.<br/><br/>
+            <strong>Custom order octaves:</strong> Your pattern repeats in each octave, and the direction buttons set which way those octaves stack: <em>Asc.</em> builds upward from your pattern, <em>Desc.</em> downward. <em>Both</em> bounces over the octaves, so a three octave pass runs first, second, third, second, first; at one octave there is no bounce. The <em>Range</em> choices adapt to how much room your pattern leaves before the edge of the harp, and update as you add or remove notes. A note lying outside the current technique's playable range is shown struck through and is skipped.
           </>)}
           {helpSec("chord", "Chord / Live", <>
             Displays 47 strings as a grid. In Chord mode, notes are selected, then can be either played as a block chord by default, or arpeggiated by checking <em>Break chord</em>, following the direction buttons and its own speed. Switching the panel to Live turns the grid into a playable interface: click or tap notes to play them immediately, with multi-touch on touch screens.<br/><br/>
@@ -3761,13 +3866,13 @@ export default function HarpGliss() {
             <strong>Hand span limit:</strong> Available when the note limit is enforced. It bounds how far apart the notes in one hand can sit, and how the two hands can split the selection. The reachable spans were calibrated by testing on a real harp rather than computed, and they vary by technique. Strings that no legal two-hand arrangement could still include are greyed out. These figures are approximations rather than strict rules: hands differ from player to player, so treat them as a guide.
           </>)}
           {helpSec("gliss", "Glissando", <>
-            Slides every string between two notes. Refer to the Pedals and presets section for information on enharmonic doublings and out-of-order configurations. 
+            Slides every string between two notes. Refer to the Pedals and presets section for notes on enharmonic doublings and out-of-order configurations. 
           </>)}
           {helpSec("techniques", "Sound techniques", <>
             Each mode lets you pick how the strings are played, and the notation preview marks the choice with its standard sign. <em>Pluck</em> is the ordinary plucked tone. <em>Harmonics</em> ring an octave above the string that sounds them, soft and bell-like; the staff displays where the note is played rather than where it sounds, from 6E to 2F. <em>Près de la table</em> is played close to the soundboard for a thinner, guitar-like tone. <em>Nail</em> is plucked with the fingernail for a bright, sharp attack. <em>Xylophonic</em> is plucked while the far end of the string is damped, giving a wooden, muted, dry and percussive sound, played from 5A to 0G. <em>Étouffé</em> is plucked and immediately muffled for a dry, staccato note. Glissando offers only the techniques that suit sliding: Single (one finger), Près de la table, and Nail. Each mode remembers its own technique.
           </>)}
           {helpSec("playback", "Loop and Continuous", <>
-            <strong>Loop:</strong> When ticked (the default), playback repeats with the given gap between passes; untick it to play a single pass and stop. For the Both direction that means one full out-and-back pass. Scale/Arpeggio and Glissando allow a gap from 0 to 20 seconds (0 runs straight into the next pass at the playing speed, with no pause); Chord uses 1 to 20 seconds. Each mode remembers its own value. With Continuous set to Yes, a ticked Loop repeats seamlessly and the interval is ignored.<br/><br/>
+            <strong>Loop:</strong> When ticked (the default), playback repeats with the given gap between passes; untick it to play a single pass and stop. For the Both direction that means one full out-and-back pass. Scale/Arpeggio and Glissando allow a gap from 0 to 20 seconds (0 runs straight into the next pass at the playing speed, with no pause); Chord uses 0.5 to 20 seconds. Each mode remembers its own value. With Continuous set to Yes, a ticked Loop repeats seamlessly and the interval is ignored.<br/><br/>
             <strong>Continuous (Both direction):</strong> <em>Yes</em> ping-pongs seamlessly with no pause and neither turnaround note repeated; <em>No</em> plays one full out-and-back pass, then pauses for the Loop interval before repeating. Each mode remembers its own choice.
           </>)}
           {helpSec("presets", "Saving, sharing and reset", <>
@@ -4366,19 +4471,24 @@ export default function HarpGliss() {
 
         {mode === "scale" && techPicker("scaleTech", scaleTech, chooseScaleTech, TECH_OPTS)}
 
-        {mode === "scale" && (
+        {mode === "scale" && (() => {
+          const stops = stopsUpTo(scaleSpeedMax);
+          return (
           <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
             <label style={{ fontSize:12, color:t.text3, whiteSpace:"nowrap" }}>Speed:</label>
-            <input type="range" min={1} max={scaleSpeedMax} step={1} value={scaleSpeed}
-              onChange={e => setScaleSpeed(Number(e.target.value))} style={{ flex:1 }}/>
-            <input type="text" inputMode="numeric" value={scaleSpeedField}
-              onChange={e => setScaleSpeedField(e.target.value.replace(/[^0-9]/g, ""))}
+            <input type="range" min={0} max={stops.length - 1} step={1}
+              value={nearestStopIndex(stops, scaleSpeed)}
+              onChange={e => { const v = stops[Number(e.target.value)]; setScaleSpeed(v); setScaleSpeedField(String(v)); }}
+              style={{ flex:1 }}/>
+            <input type="text" inputMode="decimal" value={scaleSpeedField}
+              onChange={e => setScaleSpeedField(numField(e.target.value))}
               onBlur={commitScaleSpeed}
               onKeyDown={e => e.key === "Enter" && e.currentTarget.blur()}
-              style={{ ...inputStyle, width:46, textAlign:"center" }}/>
+              style={{ ...inputStyle, width:52, textAlign:"center" }}/>
             <span style={{ fontSize:12, color:t.text3, whiteSpace:"nowrap" }}>notes/s</span>
           </div>
-        )}
+          );
+        })()}
 
         {mode === "scale" && loopRow()}
 
@@ -4419,13 +4529,15 @@ export default function HarpGliss() {
             {direction === "both" && continuousRow()}
             <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
               <label style={{ fontSize:12, color:t.text3, whiteSpace:"nowrap" }}>Speed:</label>
-              <input type="range" min={1} max={40} step={1} value={speed}
-                onChange={e => setSpeed(Number(e.target.value))} style={{ flex:1 }}/>
-              <input type="text" inputMode="numeric" value={speedField}
-                onChange={e => setSpeedField(e.target.value.replace(/[^0-9]/g, ""))}
+              <input type="range" min={0} max={stopsUpTo(40).length - 1} step={1}
+                value={nearestStopIndex(stopsUpTo(40), speed)}
+                onChange={e => { const v = stopsUpTo(40)[Number(e.target.value)]; setSpeed(v); setSpeedField(String(v)); }}
+                style={{ flex:1 }}/>
+              <input type="text" inputMode="decimal" value={speedField}
+                onChange={e => setSpeedField(numField(e.target.value))}
                 onBlur={commitSpeed}
                 onKeyDown={e => e.key === "Enter" && e.currentTarget.blur()}
-                style={{ ...inputStyle, width:46, textAlign:"center" }}/>
+                style={{ ...inputStyle, width:52, textAlign:"center" }}/>
               <span style={{ fontSize:12, color:t.text3, whiteSpace:"nowrap" }}>notes/s</span>
             </div>
             {loopRow()}
@@ -4633,14 +4745,16 @@ export default function HarpGliss() {
                 {/* minWidth:0 lets the slider shrink below its ~129px intrinsic
                     width; flex-basis keeps it usable. The count + unit wrap to
                     the next line when the staff leaves too little room. */}
-                <input type="range" min={1} max={40} step={1} value={chordSpeed}
-                  onChange={e => setChordSpeed(Number(e.target.value))} style={{ flex:"1 1 80px", minWidth:0 }}/>
+                <input type="range" min={0} max={stopsUpTo(40).length - 1} step={1}
+                  value={nearestStopIndex(stopsUpTo(40), chordSpeed)}
+                  onChange={e => { const v = stopsUpTo(40)[Number(e.target.value)]; setChordSpeed(v); setChordSpeedField(String(v)); }}
+                  style={{ flex:"1 1 80px", minWidth:0 }}/>
                 <span style={{ display:"inline-flex", alignItems:"center", gap:10 }}>
-                  <input type="text" inputMode="numeric" value={chordSpeedField}
-                    onChange={e => setChordSpeedField(e.target.value.replace(/[^0-9]/g, ""))}
+                  <input type="text" inputMode="decimal" value={chordSpeedField}
+                    onChange={e => setChordSpeedField(numField(e.target.value))}
                     onBlur={commitChordSpeed}
                     onKeyDown={e => e.key === "Enter" && e.currentTarget.blur()}
-                    style={{ ...inputStyle, width:46, textAlign:"center" }}/>
+                    style={{ ...inputStyle, width:52, textAlign:"center" }}/>
                   <span style={{ fontSize:12, color:t.text3, whiteSpace:"nowrap" }}>notes/s</span>
                 </span>
               </div>
@@ -4663,16 +4777,13 @@ export default function HarpGliss() {
 
         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
           <label style={{ fontSize:12, color:t.text3 }}>A =</label>
-          <input
-            type="text"
-            inputMode="numeric"
-            value={tuningField}
-            onChange={e => setTuningField(e.target.value.replace(/[^0-9]/g, ""))}
-            onBlur={commitTuning}
-            onKeyDown={e => e.key === "Enter" && e.currentTarget.blur()}
-            style={{ ...inputStyle, width:64 }}
-          />
-          <span style={{ fontSize:12, color:t.text3 }}>Hz <span style={{ color:t.text7 }}>(430–450)</span></span>
+          {stepperField({
+            value: tuningField, onText: e => setTuningField(numField(e.target.value)),
+            onCommit: commitTuning, onStep: stepTuning,
+            atMin: tuning <= TUNING_MIN, atMax: tuning >= TUNING_MAX,
+            width: 56, label: "reference pitch",
+          })}
+          <span style={{ fontSize:12, color:t.text3 }}>Hz <span style={{ color:t.text7 }}>({TUNING_MIN}–{TUNING_MAX})</span></span>
         </div>
       </div>
 

@@ -6,9 +6,10 @@
 
 - **Pedal board** D C B for the left foot, E F G A for the right, with flat (up) / natural (middle) / sharp (down) positions. Click to bounce a pedal through its positions, or drag it.
 - **Scale / Arpeggio mode** plays toggleable scale degrees from any start note across a selectable number of octaves.
+- **Custom order** (in Scale / Arpeggio): set the order yourself instead of playing the degrees in scale order. Tap notes to add them, repeat any note, drag to reorder or drop a note straight into the sequence, and the pattern repeats across the octaves.
 - **Chord mode** plays notes selected from a 47-string grid, as a block chord or broken / arpeggiated, with an optional note limit and hand span limit.
 - **Live mode** turns the string grid into a playable instrument: tap or click strings to sound them, with multi-touch.
-- **Glissando mode** slides between two notes at 1 to 40 notes per second, ascending, descending, or both.
+- **Glissando mode** slides between two notes at 0.5 to 40 notes per second, ascending, descending, or both.
 - **Six playing techniques**: plucked tone, harmonics, près de la table, nail, xylophonic, and étouffé, each with its own sampled sound and playable range. Glissando offers the three that suit a slide (plucked, près de la table, and nail).
 - **Notation preview** shows your current selection on a grand staff, marked with the standard sign for each technique.
 - **Live pedalling**: move a pedal mid-glissando and hear the pitch change immediately, just like the real instrument.
