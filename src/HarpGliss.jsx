@@ -4439,7 +4439,14 @@ export default function HarpGliss() {
                 <span onPointerDown={e => onSeqPointerDown(e, { kind: "chip", from: i })}
                   onPointerMove={onSeqPointerMove} onPointerUp={onSeqPointerUp}
                   style={{ cursor:"grab", touchAction:"none", userSelect:"none" }}>
-                  {noteLabel(Math.max(0, Math.min(noteIdx, 46)), pedals)}
+                  {/* The flat glyph (♭) ascends well above cap height and would
+                      make its chip taller than the others; drawing the
+                      accidental smaller keeps every chip the same height. */}
+                  {(() => {
+                    const s = STRINGS[Math.max(0, Math.min(noteIdx, 46))];
+                    const acc = accSymbol(pedals[s.letter]);
+                    return <>{s.oct}{s.letter}{acc && <span style={{ fontSize:"0.78em" }}>{acc}</span>}</>;
+                  })()}
                 </span>
                 <button onClick={() => removeAt(i)} title="Remove"
                   style={{ border:"none", background:"none", cursor:"pointer", color:t.grnTx3,
