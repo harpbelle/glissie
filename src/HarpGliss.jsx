@@ -329,8 +329,9 @@ function ChordStaff({ noteIdxs, pedals, t, dark, techs, live }) {
           notes and one below the bass staff for bass-group notes (no stacking
           per note, unlike harmonic circles). Same fixed x as p.d.l.t. so it
           aligns with the note column without jumping when seconds displace a
-          notehead. Crescent = outer semicircle plus a shallower inner arc;
-          horns point toward the notes. */}
+          notehead. Both signs keep the glyph's own orientation (horns down);
+          the bass one is NOT mirrored — the sign reads the same way wherever
+          it appears, as in the printed reference. */}
       {placed.some(n => n.tech === "nail") && (() => {
         const nn = placed.filter(n => n.tech === "nail");
         const treb = nn.filter(n => n.step >= 28);   // 4C (middle C) and up
@@ -347,7 +348,7 @@ function ChordStaff({ noteIdxs, pedals, t, dark, techs, live }) {
           const base = Math.min(H - 3, Math.max(y(BAS_BOT) + 16,
             y(Math.min(...bass.map(n => n.step)) - 2) + 8));
           out.push(<path key="nb" d={NAIL_PATH} fill={ink}
-            transform={`translate(${cx - 199 * k} ${base - 250 * k}) scale(${k} ${-k})`}/>);
+            transform={`translate(${cx - 199 * k} ${base}) scale(${k})`}/>);
         }
         return out;
       })()}
@@ -3115,7 +3116,8 @@ export default function HarpGliss() {
   // Native <input type="number"> can't serve here — its single `step` can't
   // express a variable ladder, and mobile browsers hide the spinner entirely,
   // which is exactly the pointer-only case these arrows exist for.
-  const stepperField = ({ value, onText, onCommit, onStep, atMin, atMax, disabled, width = 52, label }) => {
+  const stepperField = ({ value, onText, onCommit, onStep, atMin, atMax, disabled,
+    width = 52, label, intOnly = false }) => {
     const arrow = (dir, glyph, off) => (
       <button type="button" disabled={disabled || off}
         aria-label={`${dir > 0 ? "Increase" : "Decrease"} ${label}`}
@@ -3133,7 +3135,7 @@ export default function HarpGliss() {
     return (
       <span style={{ display:"inline-flex", alignItems:"stretch", border:`1px solid ${t.bdr2}`,
         borderRadius:4, background:t.card, overflow:"hidden", opacity: disabled ? 0.5 : 1 }}>
-        <input type="text" inputMode="decimal" value={value} disabled={disabled}
+        <input type="text" inputMode={intOnly ? "numeric" : "decimal"} value={value} disabled={disabled}
           onChange={onText} onBlur={onCommit}
           onKeyDown={e => e.key === "Enter" && e.currentTarget.blur()}
           style={{ width, minWidth:0, border:"none", outline:"none", background:"transparent",
@@ -3245,11 +3247,20 @@ export default function HarpGliss() {
     setSpeed(v);
     setSpeedField(String(v));
   }
+  // Hand span counts whole strings, so it stays integer-only (parseInt, and a
+  // digits-only input filter) — unlike speed, loop and tuning, which take 2 dp.
   function commitHandSpan() {
     const lim = TECH_LIMITS[chordTech];
     let v = parseInt(handSpanField, 10);
     if (isNaN(v)) v = handSpan;
     v = Math.max(lim.spanMin, Math.min(lim.spanMax, v));
+    setSpanByTech(m => ({ ...m, [chordTech]: v }));
+    setHandSpanField(String(v));
+  }
+  // ▲▼ move one string at a time, within the technique's own span bounds.
+  function stepHandSpan(dir) {
+    const lim = TECH_LIMITS[chordTech];
+    const v = Math.max(lim.spanMin, Math.min(lim.spanMax, Math.round(handSpan) + dir));
     setSpanByTech(m => ({ ...m, [chordTech]: v }));
     setHandSpanField(String(v));
   }
@@ -4706,12 +4717,15 @@ export default function HarpGliss() {
                       onChange={e => setHandSpanOn(e.target.checked)} />
                     Hand span limit:
                   </label>
-                  <input type="text" inputMode="numeric" value={handSpanField}
-                    disabled={!handSpanOn}
-                    onChange={e => setHandSpanField(e.target.value.replace(/[^0-9]/g, ""))}
-                    onBlur={commitHandSpan}
-                    onKeyDown={e => e.key === "Enter" && e.currentTarget.blur()}
-                    style={{ ...inputStyle, width:40, textAlign:"center", opacity: handSpanOn ? 1 : 0.5 }}/>
+                  {stepperField({
+                    value: handSpanField,
+                    onText: e => setHandSpanField(e.target.value.replace(/[^0-9]/g, "")),
+                    onCommit: commitHandSpan, onStep: stepHandSpan,
+                    atMin: handSpan <= TECH_LIMITS[chordTech].spanMin,
+                    atMax: handSpan >= TECH_LIMITS[chordTech].spanMax,
+                    disabled: !handSpanOn, width: 34, intOnly: true,
+                    label: "hand span limit",
+                  })}
                 </div>
               )}
             </div>
