@@ -1962,6 +1962,7 @@ export default function HarpGliss() {
   const [liveRing, setLiveRing] = useState(() => new Map());
   const [liveFlash, setLiveFlash] = useState(() => new Set());
   const liveTimersRef = useRef({ ring: new Map(), flash: new Map() });
+  const liveGridRef = useRef(null); // string grid, measured for contact-edge strikes
   const [breakChord, setBreakChord] = useState(false); // off = block chord (all at once)
   const [enforce8, setEnforce8] = useState(false);     // cap selection at 8 notes (two hands)
   const [handSpanOn, setHandSpanOn] = useState(false); // per-hand span rule (needs enforce8)
@@ -2273,10 +2274,17 @@ export default function HarpGliss() {
   // playback so the attack lands on the tap rather than ~15-35 ms after it.
   const samplesRef = useRef({ buffers: null, loading: false, onsets: {} });
   const voicesRef = useRef([]); // active { src, gain, endsAt } for voice-stealing
-  // Étouffé's single sounding voice: { idx, src, gain, filt }. Monophonic by
-  // definition, so it lives outside the voice-stealing pool — Max voices is
-  // effectively fixed at 1 and the sound panel's setting is ignored.
-  const etoufVoiceRef = useRef(null);
+  // Étouffé's currently sounding GROUP of voices ({ idx, src, gain, filt }).
+  // Not monophonic: étouffé octaves and chords are idiomatic, so notes struck
+  // together (one finger across two buttons, or several fingers landing within
+  // ETOUF_GROUP_MS) ring and damp as one. The next strike after that window
+  // damps the whole group. It lives outside the voice-stealing pool, so the
+  // sound panel's Max voices doesn't cap it — the ceiling is however many
+  // strings you can strike at once.
+  const etoufVoicesRef = useRef([]);
+  const etoufGroupAtRef = useRef(-1e9); // ms (performance.now) the group began
+  const etoufGroupIdxRef = useRef(new Set()); // its string indices, for the staff
+  const ETOUF_GROUP_MS = 50; // strikes this close count as one chord
 
   // Pre-warm the audio engine on the user's first interaction with the page,
   // so the samples are already decoded and the AudioContext resumed by the time
@@ -2446,26 +2454,30 @@ export default function HarpGliss() {
     S.loading = false;
   }
 
-  // Damp the current étouffé voice (if any) right now: cancel its scheduled
-  // auto-damp, truncate the gain and sweep the lowpass shut over ETOUF_DAMP,
-  // then release it. Safe to call when nothing is sounding or the voice has
-  // already auto-damped (the ramps just act on silence).
+  // Damp the whole sounding étouffé group right now: cancel each voice's
+  // scheduled auto-damp, truncate its gain and sweep its lowpass shut over
+  // ETOUF_DAMP, then release them. Safe to call when nothing is sounding or
+  // the voices have already auto-damped (the ramps just act on silence).
   function dampEtouf(now) {
-    const v = etoufVoiceRef.current;
-    if (!v) return;
-    etoufVoiceRef.current = null;
-    try {
-      v.gain.gain.cancelScheduledValues(now);
-      v.gain.gain.setValueAtTime(Math.max(v.gain.gain.value, 0.0001), now);
-      v.gain.gain.exponentialRampToValueAtTime(0.0001, now + ETOUF_DAMP);
-      v.filt.frequency.cancelScheduledValues(now);
-      v.filt.frequency.setValueAtTime(Math.max(v.filt.frequency.value, ETOUF_LP_CLOSED), now);
-      v.filt.frequency.exponentialRampToValueAtTime(ETOUF_LP_CLOSED, now + ETOUF_DAMP);
-      v.src.stop(now + ETOUF_DAMP + 0.02);
-    } catch (e) { /* already stopped */ }
+    const group = etoufVoicesRef.current;
+    if (!group.length) return;
+    etoufVoicesRef.current = [];
+    for (const v of group) {
+      try {
+        v.gain.gain.cancelScheduledValues(now);
+        v.gain.gain.setValueAtTime(Math.max(v.gain.gain.value, 0.0001), now);
+        v.gain.gain.exponentialRampToValueAtTime(0.0001, now + ETOUF_DAMP);
+        v.filt.frequency.cancelScheduledValues(now);
+        v.filt.frequency.setValueAtTime(Math.max(v.filt.frequency.value, ETOUF_LP_CLOSED), now);
+        v.filt.frequency.exponentialRampToValueAtTime(ETOUF_LP_CLOSED, now + ETOUF_DAMP);
+        v.src.stop(now + ETOUF_DAMP + 0.02);
+      } catch (e) { /* already stopped */ }
+    }
   }
 
-  function soundString(idx, when, volMul = 1, tech = "default") {
+  // startsGroup: this live strike opens a new étouffé group, so it damps the
+  // previous one. False for the 2nd..nth note of a chord struck together.
+  function soundString(idx, when, volMul = 1, tech = "default", startsGroup = true) {
     const { ctx, dest } = getAudio();
     ensureSamples(ctx);
     const s = STRINGS[idx];
@@ -2493,19 +2505,18 @@ export default function HarpGliss() {
     // damp contact); the app's damp — gain truncation + lowpass sweep —
     // supplies the ending: at ETOUF_RING for a lone note, instantly on
     // force-damp. Falls back to DSP-damped Default plucks if the étouffé
-    // bank failed to decode, then to synth. Monophonic: this strike
+    // bank failed to decode, then to synth. A strike that opens a new group
     // force-damps whatever is still sounding (the staff side of that lives
     // in liveStrike). The auto-damp is scheduled upfront on the audio clock
     // (no JS-timer jitter); a force-damp cancels those ramps and re-damps
-    // from the live values. Sostenuto and Max voices are deliberately
-    // ignored.
+    // from the live values. Sostenuto is deliberately ignored.
     if (etouf) {
-      // Monophonic force-damping and single-voice tracking are Live-only
-      // (an immediate strike has no `when`). Scheduled étouffé notes —
-      // chord and scale playback — each ring and self-damp independently
-      // at t + ETOUF_RING, so a block chord damps as one.
+      // Group force-damping and voice tracking are Live-only (an immediate
+      // strike has no `when`). Scheduled étouffé notes — chord and scale
+      // playback — each ring and self-damp independently at t + ETOUF_RING,
+      // so a block chord damps as one.
       const isLiveStrike = when == null;
-      if (isLiveStrike) dampEtouf(ctx.currentTime);
+      if (isLiveStrike && startsGroup) dampEtouf(ctx.currentTime);
       const eBufs = samplesRef.current.etoufBuffers;
       const bank = eBufs || bufs;
       const table = eBufs ? ETOUFFE_MIDIS : SAMPLE_MIDIS;
@@ -2532,7 +2543,7 @@ export default function HarpGliss() {
         // envelope stays anchored to t, so it times from the attack.
         src.start(t, samplesRef.current.onsets?.[eBufs ? "etouf" : "default"]?.[best] || 0);
         src.stop(t + ETOUF_RING + ETOUF_DAMP + 0.05);
-        if (isLiveStrike) etoufVoiceRef.current = { idx, src, gain: g, filt };
+        if (isLiveStrike) etoufVoicesRef.current.push({ idx, src, gain: g, filt });
       } else {
         // Synth fallback: a short pluck approximates the damped ring.
         const freq = tuningRef.current * Math.pow(2, (targetMidi - 69) / 12);
@@ -3179,23 +3190,83 @@ export default function HarpGliss() {
   // long as it rings — the chord-mode Sostenuto, read live from tailRef so the
   // Advanced-settings slider governs both the sound and the visual bleed.
   const LIVE_FLASH_MS = 200;
+  // One fingertip can legitimately cover two buttons, and the grid is 7 wide,
+  // so the button directly above/below is an OCTAVE away — straddling that
+  // edge is a natural way to play one without two cramped fingers. A touch
+  // landing within REACH of an orthogonal neighbour's edge sounds that string
+  // too. Raw contact geometry (PointerEvent.width/height) is deliberately NOT
+  // used: a real fingertip reports ~40 px against a 24 px-tall button, so
+  // literal overlap would fire the octave on almost every ordinary tap.
+  // Mouse is excluded — a cursor has no contact patch, so a click near an
+  // edge still means exactly one note.
+  // Deliberately strict, and vertical only. Side-by-side buttons are adjacent
+  // scale degrees, which two fingers reach comfortably, so a second must be
+  // played intentionally and never falls out of one contact. Only the octave
+  // (directly above/below) is shared, and only when the touch lands within
+  // 3 px of the shared edge or in the 4 px gap itself — a looser zone caught
+  // octaves by accident during ordinary playing.
+  const CONTACT_REACH = 7; // px from the neighbour's nearest edge (gap is 4)
+  const distToBtn = (el, x, y) => {
+    const r = el.getBoundingClientRect();
+    return Math.hypot(Math.max(0, r.left - x, x - r.right),
+                      Math.max(0, r.top - y, y - r.bottom));
+  };
+  // i = the button under the touch, or null when the touch landed in a gap
+  // between buttons (the grid, not a button, is the hit-test target there, so
+  // without this a finger centred on the gap would sound nothing at all).
+  function liveContactStrike(e, i) {
+    if (i != null) liveStrike(i);
+    if (e.pointerType === "mouse") return;
+    const grid = liveGridRef.current;
+    if (!grid) return;
+    // A gap touch has no button under it: adopt the nearest one as the primary
+    // so the same octave-only rule applies (in a side-to-side gap that yields
+    // just the one note, which is the point).
+    let primary = i;
+    if (primary == null) {
+      let best = null, bestD = Infinity;
+      for (const el of grid.querySelectorAll("[data-str]")) {
+        if (el.disabled) continue;
+        const d = distToBtn(el, e.clientX, e.clientY);
+        if (d < bestD) { bestD = d; best = el; }
+      }
+      if (!best || bestD > CONTACT_REACH) return;
+      primary = Number(best.dataset.str);
+      liveStrike(primary);
+    }
+    for (const j of [primary - 7, primary + 7]) { // the octave, nothing else
+      if (j < 0 || j > 46) continue;
+      const el = grid.querySelector(`[data-str="${j}"]`);
+      if (!el || el.disabled) continue;
+      if (distToBtn(el, e.clientX, e.clientY) <= CONTACT_REACH) liveStrike(j);
+    }
+  }
   function liveStrike(i) {
     // Range gate: some browsers still deliver pointerdown on disabled
     // buttons, so the greyed-out state alone isn't a reliable guard.
     const [rLo, rHi] = techRange(chordTech);
     if (i < rLo || i > rHi) return;
     const T = liveTimersRef.current;
-    // Étouffé is monophonic: this strike force-damps the previous voice
-    // (audio side in soundString), so clear its staff note immediately too.
+    // Étouffé groups: notes struck within ETOUF_GROUP_MS of the group's first
+    // note (one finger across two buttons, or several fingers landing at once)
+    // ring together, so an étouffé octave or chord works. A strike after that
+    // window opens a new group, force-damping the old one (audio side in
+    // soundString), so clear the old group's staff notes at the same moment.
+    let startsGroup = true;
     if (chordTech === "etouf") {
-      const prev = etoufVoiceRef.current;
-      if (prev && prev.idx !== i && T.ring.has(prev.idx)) {
-        clearTimeout(T.ring.get(prev.idx));
-        T.ring.delete(prev.idx);
-        setLiveRing(p => { const n = new Map(p); n.delete(prev.idx); return n; });
+      startsGroup = performance.now() - etoufGroupAtRef.current > ETOUF_GROUP_MS;
+      if (startsGroup) {
+        etoufGroupAtRef.current = performance.now();
+        const stale = [...etoufGroupIdxRef.current].filter(p => p !== i && T.ring.has(p));
+        if (stale.length) {
+          stale.forEach(p => { clearTimeout(T.ring.get(p)); T.ring.delete(p); });
+          setLiveRing(p => { const n = new Map(p); stale.forEach(s => n.delete(s)); return n; });
+        }
+        etoufGroupIdxRef.current = new Set();
       }
+      etoufGroupIdxRef.current.add(i);
     }
-    soundString(i, undefined, 1, chordTech);
+    soundString(i, undefined, 1, chordTech, startsGroup);
     setLiveFlash(prev => { const n = new Set(prev); n.add(i); return n; });
     if (T.flash.has(i)) clearTimeout(T.flash.get(i));
     T.flash.set(i, setTimeout(() => {
@@ -3891,7 +3962,7 @@ export default function HarpGliss() {
             <strong>Reset:</strong> Restores all settings (pedals, mode, direction, notes, speed, tuning) to their defaults, but keeps your saved custom configurations. <strong>Reset all</strong> does the same and also deletes your saved configurations; it asks for a second tap to confirm.
           </>)}
           {helpSec("sound", "Sound and tuning", <>
-            The plucked tone is the sampled concert harp from the Versilian Community Sample Library (VCSL, CC0). Harmonics, près de la table, nail, xylophonic, and étouffé are samples recorded on a concert harp by the author (CC0). The reference pitch is adjustable (A = 430 to 450 Hz). In Advanced settings you can set the sostenuto length and the number of simultaneous voices; these do not affect Étouffé, which manages its own damping.
+            The plucked tone is the sampled concert harp from the Versilian Community Sample Library (VCSL, CC0). Harmonics, près de la table, nail, xylophonic, and étouffé are samples recorded on a concert harp by the author (CC0). The reference pitch is adjustable (A = 430 to 450 Hz). In Advanced settings you can set the sostenuto length and the number of simultaneous voices; these do not affect Étouffé, which manages its own damping. In Live, étouffé notes struck together (including two caught by one finger) ring and damp as one, so octaves and chords work; the next strike damps them.
           </>)}
         </div>
       )}
@@ -4604,7 +4675,15 @@ export default function HarpGliss() {
             {/* Grid + technique radios stack in one column so the
                 radios always sit directly under the note grid, roomy or not. */}
             <div style={{ flex:"1 1 auto", minWidth:0 }}>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(7, 1fr)", gap:4, marginBottom:8 }}>
+            <div ref={liveGridRef}
+              // Catches touches that land in the gaps between buttons; a touch
+              // on a button is handled there and bubbles here, so it's skipped.
+              onPointerDown={liveMode ? (e) => {
+                if (e.pointerType === "mouse") return;
+                if (e.target.closest && e.target.closest("[data-str]")) return;
+                liveContactStrike(e, null);
+              } : undefined}
+              style={{ display:"grid", gridTemplateColumns:"repeat(7, 1fr)", gap:4, marginBottom:8 }}>
               {[6,5,4,3,2,1,0].flatMap(r => {
                 const cells = rng(r * 7, Math.min(r * 7 + 6, 46)).map(i => {
                   const s = STRINGS[i];
@@ -4631,7 +4710,7 @@ export default function HarpGliss() {
                   // the shorthand changes on select/deselect.
                   const edge = `1.5px solid ${lit ? oc : t.bdr}`;
                   return (
-                    <button key={i} disabled={greyed} title={noteLabel(i, pedals)}
+                    <button key={i} disabled={greyed} title={noteLabel(i, pedals)} data-str={i}
                       // Live uses pointerdown so each finger in a multi-touch
                       // strum sounds its own string the instant it lands;
                       // Chord keeps plain click-to-toggle.
@@ -4641,7 +4720,7 @@ export default function HarpGliss() {
                         // secondary buttons so right-click doesn't pluck.
                         if (e.pointerType === "mouse" && e.button !== 0) return;
                         if (greyed) return;
-                        liveStrike(i);
+                        liveContactStrike(e, i);
                       } : undefined}
                       style={{
                       height:24, padding:"0 1px", borderRadius:5,
