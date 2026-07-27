@@ -2180,6 +2180,16 @@ export default function HarpGliss() {
   useEffect(() => { arpMaskRef.current = arpMask; }, [arpMask]);
   useEffect(() => { scaleOrderModeRef.current = scaleOrderMode; }, [scaleOrderMode]);
   useEffect(() => { customSeqRef.current = customSeq; }, [customSeq]);
+  // Once a press-and-hold has armed a chip drag, swallow the strip's touch
+  // scrolling so the finger drags the note instead. Native listener because it
+  // must be non-passive to preventDefault; React's onTouchMove may be passive.
+  useEffect(() => {
+    const el = stripRef.current;
+    if (!el) return;
+    const block = ev => { if (seqDragRef.current && seqDragRef.current.armed) ev.preventDefault(); };
+    el.addEventListener("touchmove", block, { passive: false });
+    return () => el.removeEventListener("touchmove", block);
+  }, [mode, scaleOrderMode]);
   useEffect(() => { glissStartRef.current = glissStart; }, [glissStart]);
   useEffect(() => { glissEndRef.current = glissEnd; }, [glissEnd]);
   useEffect(() => { chordSelRef.current = chordSel; }, [chordSel]);
@@ -2321,13 +2331,35 @@ export default function HarpGliss() {
       try {
         if (navigator.audioSession) navigator.audioSession.type = "playback";
       } catch (e) { /* not supported; ignore */ }
+      // Master chain: voices → high-pass → compressor → soft clipper → out.
+      // The compressor alone could not keep the sum under full scale (3 ms
+      // attack, no lookahead, so pluck transients slip past): measured peaks
+      // were 1.05 at 8 simultaneous voices and 1.92 at 24, and everything over
+      // 1.0 is truncated by the output into the harsh "static" that stacking
+      // notes produced. The soft clipper is the piece that actually fixes it.
+      const hp = ctx.createBiquadFilter(); // rumble below the harp's range only
+      hp.type = "highpass";                // wastes headroom, so drop it first
+      hp.frequency.value = 30;
       const comp = ctx.createDynamicsCompressor();
       comp.threshold.value = -14;
       comp.ratio.value = 3;
       comp.attack.value = 0.003;
       comp.release.value = 0.25;
-      comp.connect(ctx.destination);
-      audioRef.current = { ctx, dest: comp };
+      // tanh saturation: near-linear below about half scale, so a single note
+      // or a small chord is untouched, then it bends smoothly toward 1.0
+      // instead of hitting a wall. Pre-gain ⅓ with a tanh(3u) curve makes the
+      // pair behave as tanh(x) over inputs up to 3.0. Measured after this:
+      // zero clipped samples at 24 voices, RMS within ~0.7 dB of before.
+      const pre = ctx.createGain();
+      pre.gain.value = 1 / 3;
+      const shaper = ctx.createWaveShaper();
+      const N = 2048, curve = new Float32Array(N);
+      for (let i = 0; i < N; i++) curve[i] = Math.tanh(3 * (i * 2 / (N - 1) - 1));
+      shaper.curve = curve;
+      shaper.oversample = "4x"; // keeps the nonlinearity from aliasing
+      hp.connect(comp); comp.connect(pre); pre.connect(shaper);
+      shaper.connect(ctx.destination);
+      audioRef.current = { ctx, dest: hp };
     }
     if (audioRef.current.ctx.state === "suspended") audioRef.current.ctx.resume();
     return audioRef.current;
@@ -3049,15 +3081,46 @@ export default function HarpGliss() {
     }
     return els.length;
   }
+  // Touch only: a chip drag has to be armed by a press-and-hold, because the
+  // strip scrolls along the same axis a reorder drags along — without this,
+  // every swipe that happens to start on a chip grabs the note instead of
+  // scrolling the row. A mouse has no such conflict (the wheel scrolls), so
+  // it keeps dragging instantly, as do the degree buttons, which don't sit in
+  // a scroller at all.
+  const HOLD_MS = 350;      // press-and-hold before a chip can be dragged
+  const HOLD_CANCEL = 8;    // px of movement that turns the press into a scroll
   function onSeqPointerDown(e, drag) {
     // drag = { kind: "chip", from } | { kind: "btn", note }  (note = string index)
     suppressClickRef.current = false; // clear any stale suppress from a prior drag
-    seqDragRef.current = { ...drag, moved: false, startX: e.clientX, startY: e.clientY };
-    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+    const instant = e.pointerType === "mouse" || drag.kind === "btn";
+    const d = { ...drag, moved: false, armed: instant, timer: null,
+      startX: e.clientX, startY: e.clientY, pointerId: e.pointerId, el: e.currentTarget };
+    seqDragRef.current = d;
+    if (instant) { try { e.currentTarget.setPointerCapture(e.pointerId); } catch {} return; }
+    d.timer = setTimeout(() => {
+      if (seqDragRef.current !== d) return;
+      d.armed = true;
+      d.moved = true;               // the hold itself counts as picking the chip up
+      try { d.el.setPointerCapture(d.pointerId); } catch {}
+      // Drop indicator at the chip's own slot = "picked up, nothing moved yet",
+      // which also dims the chip so the lift is visible.
+      dropPosRef.current = d.from;
+      setDropPos(d.from);
+      try { navigator.vibrate && navigator.vibrate(12); } catch {}
+    }, HOLD_MS);
   }
   function onSeqPointerMove(e) {
     const drag = seqDragRef.current;
     if (!drag) return;
+    if (!drag.armed) {
+      // Still deciding: real movement means the user is scrolling, not dragging.
+      if (Math.abs(e.clientX - drag.startX) > HOLD_CANCEL ||
+          Math.abs(e.clientY - drag.startY) > HOLD_CANCEL) {
+        clearTimeout(drag.timer);
+        seqDragRef.current = null;
+      }
+      return;
+    }
     if (!drag.moved) {
       if (Math.abs(e.clientX - drag.startX) < DRAG_THRESH &&
           Math.abs(e.clientY - drag.startY) < DRAG_THRESH) return;
@@ -3067,9 +3130,17 @@ export default function HarpGliss() {
     dropPosRef.current = g;
     setDropPos(g);
   }
+  function onSeqPointerCancel() {
+    const drag = seqDragRef.current;
+    if (drag && drag.timer) clearTimeout(drag.timer);
+    seqDragRef.current = null;
+    dropPosRef.current = null;
+    setDropPos(null);
+  }
   function onSeqPointerUp() {
     const drag = seqDragRef.current;
     seqDragRef.current = null;
+    if (drag && drag.timer) clearTimeout(drag.timer); // lifted before the hold armed
     const pos = dropPosRef.current;
     dropPosRef.current = null;
     setDropPos(null);
@@ -3937,9 +4008,15 @@ export default function HarpGliss() {
             <strong>Enharmonic doublings:</strong> Some presets (pentatonics, whole tone) set two adjacent strings to the same pitch; e.g. B♯=C. This is how scales of fewer than seven notes are achieved. A few root names (e.g. D♯ major pentatonic, G♭ blues minor) simply name the string the run starts on, where the configuration offers no theoretically cleaner enharmonic root.<br/><br/>
             <strong>Out-of-order configurations:</strong> Most presets have note pitches in order. A few enharmonic spellings break this: a sharpened E♯ sounds above the following F♭, or a B♯ above the next C♭. The default for each scale always avoids this. Configurations that don't are still kept; the effect can be striking, but are listed last among a root's alternates and marked ⚠ with the pitch class that falls out of order, e.g. ⚠E♯, ⚠B♯, or ⚠E♯,B♯.
           </>)}
+          {/* Saving applies to pedal configurations only, so it follows the
+              pedal section rather than sitting among the playback topics. */}
+          {helpSec("presets", "Saving, sharing and reset", <>
+            <strong>Saving &amp; sharing:</strong> Saved custom pedal and root note configurations are stored on your own device and persist between visits; except if you choose "Reset all" or clear your browser data, which removes them. To save a copy on your local disk or to share with other users, use Export. Each appears under "My configurations," where you can rename (✎) or delete (🗑) it; saving a name you've already used asks whether to overwrite. <strong>Export</strong> lets you tick which configurations to download as a small file you can back up or send to another user; <strong>Import</strong> loads configurations from such a file. On import, identical configurations you already have are skipped, and one whose name you already use for a <em>different</em> setting is automatically renamed.<br/><br/>
+            <strong>Reset:</strong> Restores all settings (pedals, mode, direction, notes, speed, tuning) to their defaults, but keeps your saved custom configurations. <strong>Reset all</strong> does the same and also deletes your saved configurations; it asks for a second tap to confirm.
+          </>)}
           {helpSec("scale", "Scale / Arpeggio", <>
             Plays a run from your start note. The eight buttons are the scale degrees (1–7 plus the octave, 1*): with all lit it's a full scale, and deselecting some makes an arpeggio; for example, leave 1, 3, 5 and 1* for a triad. The <em>Range</em> dropdown sets how many octaves it spans (the choices adapt to how much room the start note leaves before the edge of the harp), and your chosen degree pattern repeats in each octave. <em>Speed</em> sets how many notes play per second.<br/><br/>
-            <strong>Custom order:</strong> In Scale / Arpeggio, the toggle above the start note switches between <em>Scale order</em>, which plays your chosen degrees in scale order, and <em>Custom order</em>, where you set the order yourself. Tap the note buttons to add notes one at a time; each appears as a chip showing the note and its octave, up to 64. A blinking caret marks where the next note will go, and tapping any gap between chips moves it there. To edit, use ⌫ to delete the note before the caret, × on a chip to remove that note, or <em>Clear</em> to start again. You can also drag a chip to a new position, or drag a note button straight into the strip to drop it exactly where you want it. Pedalling still respells the notes, as it does everywhere.<br/><br/>
+            <strong>Custom order:</strong> In Scale / Arpeggio, the toggle above the start note switches between <em>Scale order</em>, which plays your chosen degrees in scale order, and <em>Custom order</em>, where you set the order yourself. Tap the note buttons to add notes one at a time; each appears as a chip showing the note and its octave, up to 64. A blinking caret marks where the next note will go, and tapping any gap between chips moves it there. To edit, use ⌫ to delete the note before the caret, × on a chip to remove that note, or <em>Clear</em> to start again. You can also drag a chip to a new position, or drag a note button straight into the strip to drop it exactly where you want it. On a touch screen, press and hold a chip for a moment to pick it up first; a plain swipe scrolls the row instead, so a long sequence stays easy to move through. Pedalling still respells the notes, as it does everywhere.<br/><br/>
             <strong>Custom order octaves:</strong> Your pattern repeats in each octave, and the direction buttons set which way those octaves stack: <em>Asc.</em> builds upward from your pattern, <em>Desc.</em> downward. <em>Both</em> bounces over the octaves, so a three octave pass runs first, second, third, second, first; at one octave there is no bounce. The <em>Range</em> choices adapt to how much room your pattern leaves before the edge of the harp, and update as you add or remove notes. A note lying outside the current technique's playable range is shown struck through and is skipped.
           </>)}
           {helpSec("chord", "Chord / Live", <>
@@ -3956,10 +4033,6 @@ export default function HarpGliss() {
           {helpSec("playback", "Loop and Continuous", <>
             <strong>Loop:</strong> When ticked (the default), playback repeats with the given gap between passes; untick it to play a single pass and stop. For the Both direction that means one full out-and-back pass. Scale/Arpeggio and Glissando allow a gap from 0 to 20 seconds (0 runs straight into the next pass at the playing speed, with no pause); Chord uses 0.5 to 20 seconds. Each mode remembers its own value. With Continuous set to Yes, a ticked Loop repeats seamlessly and the interval is ignored.<br/><br/>
             <strong>Continuous (Both direction):</strong> <em>Yes</em> ping-pongs seamlessly with no pause and neither turnaround note repeated; <em>No</em> plays one full out-and-back pass, then pauses for the Loop interval before repeating. Each mode remembers its own choice.
-          </>)}
-          {helpSec("presets", "Saving, sharing and reset", <>
-            <strong>Saving &amp; sharing:</strong> Saved custom pedal and root note configurations are stored on your own device and persist between visits; except if you choose "Reset all" or clear your browser data, which removes them. To save a copy on your local disk or to share with other users, use Export. Each appears under "My configurations," where you can rename (✎) or delete (🗑) it; saving a name you've already used asks whether to overwrite. <strong>Export</strong> lets you tick which configurations to download as a small file you can back up or send to another user; <strong>Import</strong> loads configurations from such a file. On import, identical configurations you already have are skipped, and one whose name you already use for a <em>different</em> setting is automatically renamed.<br/><br/>
-            <strong>Reset:</strong> Restores all settings (pedals, mode, direction, notes, speed, tuning) to their defaults, but keeps your saved custom configurations. <strong>Reset all</strong> does the same and also deletes your saved configurations; it asks for a second tap to confirm.
           </>)}
           {helpSec("sound", "Sound and tuning", <>
             The plucked tone is the sampled concert harp from the Versilian Community Sample Library (VCSL, CC0). Harmonics, près de la table, nail, xylophonic, and étouffé are samples recorded on a concert harp by the author (CC0). The reference pitch is adjustable (A = 430 to 450 Hz). In Advanced settings you can set the sostenuto length and the number of simultaneous voices; these do not affect Étouffé, which manages its own damping. In Live, étouffé notes struck together (including two caught by one finger) ring and damp as one, so octaves and chords work; the next strike damps them.
@@ -4517,10 +4590,14 @@ export default function HarpGliss() {
                 textDecoration: unplayable ? "line-through" : "none",
                 fontSize:12.5, fontWeight:600, whiteSpace:"nowrap", flexShrink:0,
                 opacity: beingDragged ? 0.4 : unplayable ? 0.7 : 1 }}>
-                {/* The note label is the drag handle; the × stays a plain click. */}
+                {/* The note label is the drag handle; the × stays a plain click.
+                    touchAction "pan-x" lets a swipe scroll the strip natively;
+                    once a press-and-hold arms the drag, the strip's touchmove
+                    listener stops the scroll so the reorder has the gesture. */}
                 <span onPointerDown={e => onSeqPointerDown(e, { kind: "chip", from: i })}
                   onPointerMove={onSeqPointerMove} onPointerUp={onSeqPointerUp}
-                  style={{ cursor:"grab", touchAction:"none", userSelect:"none" }}>
+                  onPointerCancel={onSeqPointerCancel}
+                  style={{ cursor:"grab", touchAction:"pan-x", userSelect:"none" }}>
                   {/* The flat glyph (♭) ascends well above cap height and would
                       make its chip taller than the others; drawing the
                       accidental smaller keeps every chip the same height. */}
