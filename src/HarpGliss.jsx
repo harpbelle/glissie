@@ -1638,6 +1638,7 @@ const DEFAULT_PEDALS = { D:0, C:0, B:0, E:0, F:0, G:0, A:0 };
 const LS_PRESETS = "glissie.userPresets.v1";
 const LS_SETTINGS = "glissie.settings.v1";
 const CUSTOM_MAX = 64; // Custom order: soft cap so a stuck press can't build a runaway strip
+const HILITE_MIN_MS = 45; // floor between played-note highlights (≈22/s)
 // Speed and loop-gap sliders step through a musical ladder rather than a fixed
 // increment: notes/s is heard as a ratio, so 1 → 1.5 is an obvious change while
 // 30 → 30.5 is inaudible. This is the 1-1.5-2-3 preferred-number series, so the
@@ -1717,37 +1718,52 @@ function cleanName(s) {
 }
 
 // ── Per-mode sound settings ─────────────────────────────────────────────────
-// Each mode keeps its own Sostenuto and Max voices. Units differ deliberately:
-// gliss measures Sostenuto in notes (ring scales with playback speed), while
-// scale/arpeggio and chord measure it in seconds — their previous behavior was
-// a hard-coded 3.4 s ring, which these defaults reproduce exactly.
-// Chord defaults Max voices to 47 (every string on the harp) so a full-board
-// chord is never cut short by voice-stealing.
+// Each mode keeps its own Sostenuto. Units differ deliberately: gliss measures
+// it in notes (ring scales with playback speed), while scale/arpeggio and chord
+// measure it in seconds — their previous behavior was a hard-coded 3.4 s ring,
+// which these defaults reproduce exactly.
 const SOUND_DEFAULTS = {
-  gliss: { tail: 24,  maxVoices: 24 }, // tail in notes
-  scale: { tail: 3.4, maxVoices: 24 }, // tail in seconds
-  chord: { tail: 3.4, maxVoices: 47 }, // tail in seconds
+  gliss: { tail: 24 },  // tail in notes
+  scale: { tail: 3.4 }, // tail in seconds
+  chord: { tail: 3.4 }, // tail in seconds
 };
+// Fixed polyphony ceiling, no longer a user setting. It existed to tame the
+// distortion that stacking notes used to cause; the master soft clipper fixes
+// that at any density, so what remains is a safety net against pathological
+// polyphony (Scale at 20 notes/s with an 8 s ring asks for ~160 voices, which
+// no phone sustains). 64 sits above Glissando's own maximum — Sostenuto is
+// counted in notes there, so voices ≈ Sostenuto, at most 60 — which means the
+// cap can never quietly contradict a ring length the user chose.
+const MAX_VOICES = 64;
+// Ramp an AudioParam down to `floor` from wherever it currently sits.
+// cancelAndHoldAtTime is essential and not interchangeable with
+// cancelScheduledValues: the latter *removes* an in-progress ramp, so the
+// value snaps back to the last explicitly set point. Measured on the voice
+// envelope, stealing a voice during its fade produced a 0.5 full-scale step —
+// a click, from the very code meant to avoid one. With the hold: 0.
+function rampParamDown(p, now, secs, floor) {
+  if (p.cancelAndHoldAtTime) p.cancelAndHoldAtTime(now);
+  else p.cancelScheduledValues(now); // older Safari; the snap risk remains
+  p.setValueAtTime(Math.max(p.value, floor), now); // exponential needs > 0
+  p.exponentialRampToValueAtTime(floor, now + secs);
+}
 function initSoundSettings(saved) {
   const clamp = (v, lo, hi, d) =>
     (typeof v === "number" && Number.isFinite(v)) ? Math.min(hi, Math.max(lo, v)) : d;
   const s = (saved && saved.sound) || {};
-  // Migrate pre-split settings: the old single tailNotes/maxVoices pair only
-  // ever affected gliss playback, so it seeds the gliss slot.
+  // Migrate pre-split settings: the old single tailNotes value only ever
+  // affected gliss playback, so it seeds the gliss slot. Any saved maxVoices
+  // (from when it was a slider) is ignored.
   const legacy = {};
   if (saved && typeof saved.tailNotes === "number") legacy.tail = saved.tailNotes;
-  if (saved && typeof saved.maxVoices === "number") legacy.maxVoices = saved.maxVoices;
-  const build = (m, tailLo, tailHi, mvHi, extra) => {
+  const build = (m, tailLo, tailHi, extra) => {
     const src = { ...(extra || {}), ...(s[m] || {}) };
-    return {
-      tail: clamp(src.tail, tailLo, tailHi, SOUND_DEFAULTS[m].tail),
-      maxVoices: clamp(src.maxVoices, 4, mvHi, SOUND_DEFAULTS[m].maxVoices),
-    };
+    return { tail: clamp(src.tail, tailLo, tailHi, SOUND_DEFAULTS[m].tail) };
   };
   return {
-    gliss: build("gliss", 1, 60, 70, legacy),
-    scale: build("scale", 0.5, 8, 70),
-    chord: build("chord", 0.5, 8, 94),
+    gliss: build("gliss", 1, 60, legacy),
+    scale: build("scale", 0.5, 8),
+    chord: build("chord", 0.5, 8),
   };
 }
 // A custom config is portable as a compact object. Validate on import.
@@ -2115,7 +2131,7 @@ export default function HarpGliss() {
   const dropPosRef = useRef(null); // latest drop gap, read on pointerup (no render race)
   const [dropPos, setDropPos] = useState(null);
   const [showTuner, setShowTuner] = useState(false);
-  // Per-mode sound settings (Sostenuto + Max voices), see SOUND_DEFAULTS.
+  // Per-mode sound settings (Sostenuto), see SOUND_DEFAULTS.
   const [soundSettings, setSoundSettings] = useState(() => initSoundSettings(_savedSettings));
   const setSound = (patch) =>
     setSoundSettings(s => ({ ...s, [mode]: { ...s[mode], ...patch } }));
@@ -2123,10 +2139,8 @@ export default function HarpGliss() {
   const [darkMode, setDarkMode] = useState(() => { try { return localStorage.getItem(LS_DARK) === "1"; } catch { return false; } });
   // Refs mirror the *current mode's* values so scheduled notes read live settings.
   const tailRef = useRef(SOUND_DEFAULTS.gliss.tail);
-  const maxVoicesRef = useRef(SOUND_DEFAULTS.gliss.maxVoices);
   useEffect(() => {
     tailRef.current = soundSettings[mode].tail;
-    maxVoicesRef.current = soundSettings[mode].maxVoices;
   }, [soundSettings, mode]);
   // Persist to the user's device. localStorage is shared per-origin (~5 MB
   // across all harpbelle.github.io projects), so a full quota means saves
@@ -2165,6 +2179,7 @@ export default function HarpGliss() {
   const glissLoopSecRef = useRef(glissLoopSec);
   const chordLoopSecRef = useRef(chordLoopSec);
   const playRef = useRef({ on: false, timer: null });
+  const lastHiliteRef = useRef(0); // ms, throttles the played-note highlight
   const cycleDirRef = useRef({});
   const dragRef = useRef({}); // active pedal drags keyed by pointerId (up to two fingers)
   const audioRef = useRef(null);
@@ -2356,7 +2371,10 @@ export default function HarpGliss() {
       const N = 2048, curve = new Float32Array(N);
       for (let i = 0; i < N; i++) curve[i] = Math.tanh(3 * (i * 2 / (N - 1) - 1));
       shaper.curve = curve;
-      shaper.oversample = "4x"; // keeps the nonlinearity from aliasing
+      // 2x, not 4x: measured identical peak and zero clipping either way, and
+      // tanh is a smooth curve whose harmonics fall away quickly, so the extra
+      // pass only bought CPU cost — which is exactly what a phone lacks.
+      shaper.oversample = "2x";
       hp.connect(comp); comp.connect(pre); pre.connect(shaper);
       shaper.connect(ctx.destination);
       audioRef.current = { ctx, dest: hp };
@@ -2496,12 +2514,11 @@ export default function HarpGliss() {
     etoufVoicesRef.current = [];
     for (const v of group) {
       try {
-        v.gain.gain.cancelScheduledValues(now);
-        v.gain.gain.setValueAtTime(Math.max(v.gain.gain.value, 0.0001), now);
-        v.gain.gain.exponentialRampToValueAtTime(0.0001, now + ETOUF_DAMP);
-        v.filt.frequency.cancelScheduledValues(now);
-        v.filt.frequency.setValueAtTime(Math.max(v.filt.frequency.value, ETOUF_LP_CLOSED), now);
-        v.filt.frequency.exponentialRampToValueAtTime(ETOUF_LP_CLOSED, now + ETOUF_DAMP);
+        // Same hold-then-ramp as voice stealing: a force-damp usually lands
+        // mid-ring, where the gain and the lowpass sweep both have automation
+        // in flight that must be held rather than cancelled out from under.
+        rampParamDown(v.gain.gain, now, ETOUF_DAMP, 0.0001);
+        rampParamDown(v.filt.frequency, now, ETOUF_DAMP, ETOUF_LP_CLOSED);
         v.src.stop(now + ETOUF_DAMP + 0.02);
       } catch (e) { /* already stopped */ }
     }
@@ -2616,18 +2633,19 @@ export default function HarpGliss() {
       src.start(t, samplesRef.current.onsets?.[tech]?.[best] || 0);
       src.stop(t + tail + 0.05);
 
-      // ── Voice-stealing (cap live-tunable) ──
-      const MAX_VOICES = maxVoicesRef.current;
+      // ── Voice-stealing (fixed MAX_VOICES safety net, not a user setting) ──
       const pool = voicesRef.current;
-      pool.push({ src, gain: g, endsAt: t + tail });
+      pool.push({ src, gain: g, startsAt: t, endsAt: t + tail });
       const now = ctx.currentTime;
       while (pool.length && pool[0].endsAt <= now) pool.shift(); // drop finished
       while (pool.length > MAX_VOICES) {
         const old = pool.shift();
         try {
-          old.gain.gain.cancelScheduledValues(now);
-          old.gain.gain.setValueAtTime(old.gain.gain.value, now);
-          old.gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+          // A voice queued but not yet sounding is silent, so stop it outright:
+          // fading from a gain of 0 is meaningless (and invalid for an
+          // exponential ramp). The rest fade from wherever they've reached.
+          if (old.startsAt > now) { old.src.stop(); continue; }
+          rampParamDown(old.gain.gain, now, 0.12, 0.0001);
           old.src.stop(now + 0.14);
         } catch (e) { /* already stopped */ }
       }
@@ -2641,7 +2659,18 @@ export default function HarpGliss() {
     const gen = playRef.current.gen;
     const lead = Math.max(0, (t - ctx.currentTime) * 1000);
     setTimeout(() => {
-      if (playRef.current.on && playRef.current.gen === gen) setCurrentIdx(idx);
+      if (!playRef.current.on || playRef.current.gen !== gen) return;
+      // Each highlight is a React state change, so it re-renders the whole
+      // panel (47 buttons + staff). At gliss speeds that is 40 re-renders a
+      // second competing with the scheduler for the main thread — on a phone
+      // that stall grows past the lookahead and notes end up scheduled in the
+      // past, which collapses the attack ramp into a step (an audible click).
+      // Above ~22 notes/s the highlight is a blur anyway, so sample it; slower
+      // playback is unaffected because notes are further apart than the floor.
+      const now = performance.now();
+      if (now - lastHiliteRef.current < HILITE_MIN_MS) return;
+      lastHiliteRef.current = now;
+      setCurrentIdx(idx);
     }, lead);
   }
 
@@ -2901,6 +2930,13 @@ export default function HarpGliss() {
     let nextNoteTime = ctx.currentTime + 0.08; // small lead so note 1 isn't in the past
     const scheduleAhead = () => {
       if (!playRef.current.on) return;
+      // If the main thread stalled for longer than the lookahead (easy on a
+      // phone during a fast gliss), the queue is now behind the audio clock.
+      // Scheduling a note in the past applies its whole envelope at once —
+      // the 3 ms attack ramp becomes a step, which is heard as a click — so
+      // resync to just ahead of the clock instead. A missed note is far less
+      // noticeable than a click, and only a stall this large ever hits it.
+      if (nextNoteTime < ctx.currentTime) nextNoteTime = ctx.currentTime + 0.02;
       while (nextNoteTime < ctx.currentTime + LOOKAHEAD) {
         const ev = pullEvent();
         if (ev.done) {
@@ -4035,7 +4071,7 @@ export default function HarpGliss() {
             <strong>Continuous (Both direction):</strong> <em>Yes</em> ping-pongs seamlessly with no pause and neither turnaround note repeated; <em>No</em> plays one full out-and-back pass, then pauses for the Loop interval before repeating. Each mode remembers its own choice.
           </>)}
           {helpSec("sound", "Sound and tuning", <>
-            The plucked tone is the sampled concert harp from the Versilian Community Sample Library (VCSL, CC0). Harmonics, près de la table, nail, xylophonic, and étouffé are samples recorded on a concert harp by the author (CC0). The reference pitch is adjustable (A = 430 to 450 Hz). In Advanced settings you can set the sostenuto length and the number of simultaneous voices; these do not affect Étouffé, which manages its own damping. In Live, étouffé notes struck together (including two caught by one finger) ring and damp as one, so octaves and chords work; the next strike damps them.
+            The plucked tone is the sampled concert harp from the Versilian Community Sample Library (VCSL, CC0). Harmonics, près de la table, nail, xylophonic, and étouffé are samples recorded on a concert harp by the author (CC0). The reference pitch is adjustable (A = 430 to 450 Hz). In Advanced settings you can set the sostenuto length, which is how long each string rings; it does not affect Étouffé, which manages its own damping. In Live, étouffé notes struck together (including two caught by one finger) ring and damp as one, so octaves and chords work; the next strike damps them.
           </>)}
         </div>
       )}
@@ -4972,9 +5008,10 @@ export default function HarpGliss() {
       )}
 
       {/* Advanced settings — per-mode sound tuning. Each mode remembers its
-          own Sostenuto and Max voices (see SOUND_DEFAULTS). Gliss measures
-          Sostenuto in notes so the ring scales with speed; Scale/Arpeggio and
-          Chord measure it in seconds (previously hard-coded at 3.4 s). */}
+          own Sostenuto (see SOUND_DEFAULTS). Gliss measures it in notes so the
+          ring scales with speed; Scale/Arpeggio and Chord measure it in seconds
+          (previously hard-coded at 3.4 s). Polyphony is no longer exposed: see
+          MAX_VOICES for why it became a fixed safety net. */}
       <div style={{ marginBottom:12 }}>
         <button onClick={() => setShowTuner(s => !s)} style={{ ...btn(showTuner), fontSize:12 }}>
           <span style={{ gridArea:"1/1", visibility:"hidden", fontWeight:600 }}>🎛 Advanced settings ▲</span>
@@ -4985,8 +5022,6 @@ export default function HarpGliss() {
         {showTuner && (() => {
           const cur = soundSettings[mode];
           const isG = mode === "gliss";
-          const mvMax = mode === "chord" ? 94 : 70;
-          const modeName = mode === "gliss" ? "Glissando" : mode === "chord" ? "Chord / Live" : "Scale/Arpeggio";
           return (
             <div style={{ background:t.ylwLt, border:`1px solid ${t.ylwBdr3}`, borderRadius:6, padding:12, marginTop:8 }}>
               <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4 }}>
@@ -5000,26 +5035,22 @@ export default function HarpGliss() {
               </div>
               <div style={{ fontSize:10.5, color:t.text7, marginBottom:12 }}>
                 {isG
-                  ? "How long each string rings, in notes. Lower = drier and cleaner; higher = lusher wash, but more static (especially on chord-type glisses, which double more strings)."
+                  ? "How long each string rings, counted in notes so the wash scales with playback speed. Lower is drier and more articulate; higher lets the strings pile into a fuller wash."
                   : "How long each string rings after it's plucked, in seconds, regardless of playback speed."}
               </div>
-              <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4 }}>
-                <label style={{ fontSize:12, color:t.text3, width:130, whiteSpace:"nowrap" }}>
-                  Max voices: {cur.maxVoices}
-                </label>
-                <input type="range" min={4} max={mvMax} step={1} value={cur.maxVoices}
-                  onChange={e => setSound({ maxVoices: Number(e.target.value) })} style={{ flex:1 }}/>
-              </div>
-              <div style={{ fontSize:10.5, color:t.text7, marginBottom:12 }}>
-                {mode === "chord"
-                  ? "Ceiling on how many strings ring at once. 47 covers every string on the harp, so even a full-board chord is never cut short."
-                  : "Ceiling on how many strings ring at once. Lower it to tame static without shortening the ring."}
-              </div>
+              {/* Étouffé sits outside the voice pool and damps its own groups,
+                  so Sostenuto doesn't reach it. Not shown in Gliss, which
+                  doesn't offer the technique. */}
+              {!isG && (
+                <div style={{ fontSize:10.5, color:t.text7, marginBottom:12 }}>
+                  Étouffé ignores this: each group rings only until you damp it by playing again.
+                </div>
+              )}
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", paddingTop:8, borderTop:`1px solid ${t.ylwDiv}` }}>
                 <span style={{ fontSize:11, color:t.ylwTx4 }}>
                   {isG
                     ? <>At {speed} notes/s, each voice rings ≈ {(cur.tail / speed).toFixed(2)}s.</>
-                    : <>Defaults for this mode: {SOUND_DEFAULTS[mode].tail.toFixed(1)} s / {SOUND_DEFAULTS[mode].maxVoices} voices.</>}
+                    : <>Default for this mode: {SOUND_DEFAULTS[mode].tail.toFixed(1)} s.</>}
                 </span>
                 <button
                   onClick={() => setSound({ ...SOUND_DEFAULTS[mode] })}
