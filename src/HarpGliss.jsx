@@ -4026,9 +4026,10 @@ export default function HarpGliss() {
           </button>
         </div>
       </div>
-      {/* Help */}
+      {/* Help. .selectable: text selection is off app-wide so a long press
+          can't hijack the chip-reorder gesture, but this prose stays copyable. */}
       {showHelp && (
-        <div style={{ background:t.help, border:`1px solid ${t.helpBdr}`, borderRadius:6, padding:"2px 12px 4px", marginBottom:12, fontSize:14, lineHeight:1.6 }}>
+        <div className="selectable" style={{ background:t.help, border:`1px solid ${t.helpBdr}`, borderRadius:6, padding:"2px 12px 4px", marginBottom:12, fontSize:14, lineHeight:1.6 }}>
           {helpSec("octaves", "Octave numbering", <>
             Harp octave numbers follow string numbering; they decrease as pitch rises, and each octave begins at F. Ascending from middle: 4C → 4D → 4E → 3F → 3G → 3A → 3B → 3C…
             <StringChart dark={darkMode} wide={wide} />
@@ -4426,7 +4427,10 @@ export default function HarpGliss() {
         {presetMatches.length === 0
           ? "Custom pedal configuration"
           : <div style={{ display:"flex", alignItems:"baseline", gap:4 }}>
-              <div ref={detRef} style={{
+              {/* selectable: scale names are worth copying out, and this is
+                  plain text rather than a control, so it can't swallow a
+                  press-and-hold the way the chips and buttons would. */}
+              <div ref={detRef} className="selectable" style={{
                 flex:1, overflow:"hidden",
                 ...(detExpand ? {} : { whiteSpace:"nowrap", textOverflow:"ellipsis" }),
               }}>

@@ -11,6 +11,38 @@ body {
   font-family: Georgia, "Times New Roman", serif;
 }
 
+/* The controls behave like an instrument, not a document: a long press on a
+   pedal, string button or sequence chip should never start a text selection or
+   raise the copy callout. On a phone that was hijacking the press-and-hold used
+   to pick a chip up for reordering, so the drag rarely engaged. Prose worth
+   copying opts back in with .selectable, and form fields always stay editable. */
+html, body {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.selectable,
+.selectable * {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+/* ...but the collapsible section headers inside it are controls, not prose. */
+.selectable button {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+input,
+textarea {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  user-select: text;
+}
+
 /* Range sliders: a consistent, harp-string-thin look across browsers */
 input[type="range"] {
   -webkit-appearance: none;
