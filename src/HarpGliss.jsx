@@ -2112,8 +2112,9 @@ export default function HarpGliss() {
       ? saved.filter(n => Number.isInteger(n) && n >= 0 && n <= 46).slice(0, CUSTOM_MAX)
       : [];
   });
-  // Insertion point for the next tap / edit; 0..customSeq.length. Starts at the
-  // end of a restored sequence so the next tap appends.
+  // Where the next tapped note lands; 0..customSeq.length. Positioned by
+  // tapping a CHIP (caret goes before it — a 28px target) or a gap. Starts at
+  // the end of a restored sequence so the first tap appends.
   const [caretPos, setCaretPos] = useState(() => {
     const saved = loadJSON(LS_SETTINGS, {}).customSeq;
     return Array.isArray(saved)
@@ -2122,9 +2123,9 @@ export default function HarpGliss() {
   });
   // Pointer-drag state for the sequence strip: reorder an existing chip, or
   // drag a degree button down into a slot. dropPos is the live drop gap shown
-  // as a highlighted caret; seqDragRef holds the in-flight drag; the strip DOM
+  // as a highlighted marker; seqDragRef holds the in-flight drag; the strip DOM
   // (stripRef) is measured to map pointer x → gap; suppressClickRef stops a
-  // button-drag from also firing its tap (insert-at-caret) on release.
+  // drag from also firing the tap (caret move / delete / append) on release.
   const stripRef = useRef(null);
   const seqDragRef = useRef(null);
   const suppressClickRef = useRef(false);
@@ -3071,26 +3072,29 @@ export default function HarpGliss() {
     setGlissTech(v);
   }
   // ── Custom-order sequence editing (Scale/Arpeggio) ──
-  // Tapping a degree button inserts that note (resolved to an absolute string
-  // index at tap time) at the caret; the caret then advances so successive
-  // taps append in order. Repeats are allowed, and the soft cap keeps a
-  // runaway strip from filling the screen.
+  // Tapping a degree button appends that note (resolved to an absolute string
+  // index at tap time). The caret is no longer a control that can be placed:
+  // it simply marks the end, where the next tap lands. Putting a note *between*
+  // others is done by dragging it in, which is unambiguous on a touch screen —
+  // the caret's old hit targets were the 6 px gaps between chips, far too small
+  // a target next to the chips themselves, so presses meant for a chip kept
+  // landing on them. Repeats are allowed, and the soft cap keeps a runaway
+  // strip from filling the screen.
   function insertNote(idx) {
     setCustomSeq(seq => {
       if (seq.length >= CUSTOM_MAX) return seq;
       const at = Math.min(caretPos, seq.length);
-      const next = [...seq.slice(0, at), idx, ...seq.slice(at)];
-      setCaretPos(at + 1);
-      return next;
+      setCaretPos(at + 1);          // advance, so successive taps read in order
+      return [...seq.slice(0, at), idx, ...seq.slice(at)];
     });
     stop();
   }
-  function removeAt(i) {          // delete one chip, keep the caret sensible
+  function removeAt(i) {            // keep the caret pointing at the same place
     setCustomSeq(seq => seq.filter((_, j) => j !== i));
     setCaretPos(p => (i < p ? p - 1 : p));
     stop();
   }
-  function backspaceSeq() {       // delete the chip before the caret
+  function backspaceSeq() {         // delete the note before the caret
     if (caretPos === 0) return;
     removeAt(caretPos - 1);
   }
@@ -3123,8 +3127,13 @@ export default function HarpGliss() {
   // scrolling the row. A mouse has no such conflict (the wheel scrolls), so
   // it keeps dragging instantly, as do the degree buttons, which don't sit in
   // a scroller at all.
-  const HOLD_MS = 350;      // press-and-hold before a chip can be dragged
-  const HOLD_CANCEL = 8;    // px of movement that turns the press into a scroll
+  const HOLD_MS = 220;      // press-and-hold before a chip can be dragged
+  // Horizontal px that turn the press into a scroll. Only the X axis counts:
+  // chips are touchAction "pan-x", so vertical drift can't scroll anything and
+  // is just finger wobble during the hold. Deliberately generous — a fingertip
+  // is wider than a chip, so its contact centre wanders several px while
+  // pressing. A real scroll flick travels far further than this within HOLD_MS.
+  const HOLD_CANCEL = 26;
   function onSeqPointerDown(e, drag) {
     // drag = { kind: "chip", from } | { kind: "btn", note }  (note = string index)
     suppressClickRef.current = false; // clear any stale suppress from a prior drag
@@ -3142,6 +3151,10 @@ export default function HarpGliss() {
       // which also dims the chip so the lift is visible.
       dropPosRef.current = d.from;
       setDropPos(d.from);
+      // The press may have landed on the chip's × (it's draggable too, since a
+      // fingertip is wider than the chip). Once this becomes a drag, swallow
+      // the click that follows so a grab can never delete the note instead.
+      suppressClickRef.current = true;
       try { navigator.vibrate && navigator.vibrate(12); } catch {}
     }, HOLD_MS);
   }
@@ -3149,9 +3162,8 @@ export default function HarpGliss() {
     const drag = seqDragRef.current;
     if (!drag) return;
     if (!drag.armed) {
-      // Still deciding: real movement means the user is scrolling, not dragging.
-      if (Math.abs(e.clientX - drag.startX) > HOLD_CANCEL ||
-          Math.abs(e.clientY - drag.startY) > HOLD_CANCEL) {
+      // Still deciding: only a horizontal move means the user is scrolling.
+      if (Math.abs(e.clientX - drag.startX) > HOLD_CANCEL) {
         clearTimeout(drag.timer);
         seqDragRef.current = null;
       }
@@ -3194,7 +3206,7 @@ export default function HarpGliss() {
     } else {
       setCustomSeq(seq => {
         const from = drag.from;
-        let to = pos > from ? pos - 1 : pos; // removal shifts indices after `from`
+        const to = pos > from ? pos - 1 : pos; // removal shifts indices after `from`
         const without = seq.filter((_, j) => j !== from);
         setCaretPos(to + 1);
         return [...without.slice(0, to), seq[from], ...without.slice(to)];
@@ -4053,7 +4065,7 @@ export default function HarpGliss() {
           </>)}
           {helpSec("scale", "Scale / Arpeggio", <>
             Plays a run from your start note. The eight buttons are the scale degrees (1–7 plus the octave, 1*): with all lit it's a full scale, and deselecting some makes an arpeggio; for example, leave 1, 3, 5 and 1* for a triad. The <em>Range</em> dropdown sets how many octaves it spans (the choices adapt to how much room the start note leaves before the edge of the harp), and your chosen degree pattern repeats in each octave. <em>Speed</em> sets how many notes play per second.<br/><br/>
-            <strong>Custom order:</strong> In Scale / Arpeggio, the toggle above the start note switches between <em>Scale order</em>, which plays your chosen degrees in scale order, and <em>Custom order</em>, where you set the order yourself. Tap the note buttons to add notes one at a time; each appears as a chip showing the note and its octave, up to 64. A blinking caret marks where the next note will go, and tapping any gap between chips moves it there. To edit, use ⌫ to delete the note before the caret, × on a chip to remove that note, or <em>Clear</em> to start again. You can also drag a chip to a new position, or drag a note button straight into the strip to drop it exactly where you want it. On a touch screen, press and hold a chip for a moment to pick it up first; a plain swipe scrolls the row instead, so a long sequence stays easy to move through. Pedalling still respells the notes, as it does everywhere.<br/><br/>
+            <strong>Custom order:</strong> In Scale / Arpeggio, the toggle above the start note switches between <em>Scale order</em>, which plays your chosen degrees in scale order, and <em>Custom order</em>, where you set the order yourself. Tap the note buttons to add notes one at a time; each appears as a chip showing the note and its octave, up to 64. A blinking caret marks where the next tapped note will land; tap any chip to move it there (the note goes in before that chip), or drag a note button straight into the gap you want. To edit, use ⌫ to delete the note before the caret, × on a chip to remove that note, or <em>Clear</em> to start again. Drag a chip to move it somewhere else in the sequence; on a touch screen, press and hold it for a moment to pick it up first, since a plain swipe scrolls the row instead, keeping a long sequence easy to move through. Pedalling still respells the notes, as it does everywhere.<br/><br/>
             <strong>Custom order octaves:</strong> Your pattern repeats in each octave, and the direction buttons set which way those octaves stack: <em>Asc.</em> builds upward from your pattern, <em>Desc.</em> downward. <em>Both</em> bounces over the octaves, so a three octave pass runs first, second, third, second, first; at one octave there is no bounce. The <em>Range</em> choices adapt to how much room your pattern leaves before the edge of the harp, and update as you add or remove notes. A note lying outside the current technique's playable range is shown struck through and is skipped.
           </>)}
           {helpSec("chord", "Chord / Live", <>
@@ -4595,18 +4607,20 @@ export default function HarpGliss() {
             of pushing the rest of the panel around. */}
         {mode === "scale" && scaleOrderMode === "custom" && (() => {
           const dragging = dropPos !== null;
-          // A gap is drawn as: the drop indicator during a drag, else the
-          // blinking caret at the insertion point, else a thin clickable slot.
+          // A gap shows the drop indicator while dragging, else the blinking
+          // caret when it's the insertion point. It is clickable, but it is no
+          // longer the ONLY way to place the caret — tapping a chip does it
+          // too, so this 6 px sliver never has to be hit deliberately.
           const caret = (pos) => {
             const isDrop = dragging && dropPos === pos;
             const isCaret = !dragging && pos === caretPos;
             return (
               <span key={`c${pos}`} onClick={() => setCaretPos(pos)}
+                aria-label="insertion point"
                 style={{ display:"inline-block", width: isDrop ? 3 : isCaret ? 2 : 6, alignSelf:"stretch",
-                  minHeight:26, cursor:"pointer", flexShrink:0,
+                  minHeight:26, flexShrink:0, cursor:"pointer",
                   background: isDrop || isCaret ? t.accent : "transparent",
-                  borderRadius:1, animation: isCaret ? "blink 1s step-start infinite" : "none" }}
-                aria-label="insertion point"/>
+                  borderRadius:1, animation: isCaret ? "blink 1s step-start infinite" : "none" }}/>
             );
           };
           const chips = [];
@@ -4619,25 +4633,41 @@ export default function HarpGliss() {
             // playback, but kept (and still draggable/removable) rather than
             // silently deleted from a sequence you built by hand.
             const unplayable = noteIdx < scaleLo || noteIdx > scaleHi;
+            // The WHOLE chip is the drag handle, padding and × included — a
+            // fingertip is wider than the chip, so any part of it that couldn't
+            // start a drag was a hole you'd fall into. The × previously opted
+            // out, which was worse than a miss: the press did nothing, then the
+            // click on release DELETED the note you meant to move. It now drags
+            // like the rest, and deletes only on a quick tap (a press that
+            // becomes a drag sets suppressClick, swallowing that click).
+            // touchAction "pan-x" lets a swipe scroll the strip natively; once
+            // a press-and-hold arms the drag, the strip's touchmove listener
+            // stops the scroll so the reorder has the gesture.
             chips.push(
               <span key={`ch${i}`} data-chip
                 title={unplayable ? "Outside technique range" : undefined}
+                onPointerDown={e => onSeqPointerDown(e, { kind: "chip", from: i })}
+                onPointerMove={onSeqPointerMove} onPointerUp={onSeqPointerUp}
+                onPointerCancel={onSeqPointerCancel}
+                // Quick tap = put the caret before this chip. A press that
+                // became a drag set suppressClick, so a grab never also moves
+                // the caret. This is the large target the gaps never were.
+                onClick={() => {
+                  if (suppressClickRef.current) { suppressClickRef.current = false; return; }
+                  setCaretPos(i);
+                }}
                 style={{ display:"inline-flex", alignItems:"center", gap:3,
-                padding:"2px 4px 2px 7px", borderRadius:5,
+                // Roomy vertical padding: the strip is 40px tall, so a taller
+                // chip costs nothing and gives a fingertip something to land on.
+                padding:"6px 5px 6px 8px", borderRadius:5,
+                cursor:"grab", touchAction:"pan-x",
                 background: unplayable ? t.card3 : t.grnLt3,
                 border:`1px solid ${unplayable ? t.bdr2 : t.grn}`,
                 color: unplayable ? t.text6 : t.grnTx2,
                 textDecoration: unplayable ? "line-through" : "none",
                 fontSize:12.5, fontWeight:600, whiteSpace:"nowrap", flexShrink:0,
                 opacity: beingDragged ? 0.4 : unplayable ? 0.7 : 1 }}>
-                {/* The note label is the drag handle; the × stays a plain click.
-                    touchAction "pan-x" lets a swipe scroll the strip natively;
-                    once a press-and-hold arms the drag, the strip's touchmove
-                    listener stops the scroll so the reorder has the gesture. */}
-                <span onPointerDown={e => onSeqPointerDown(e, { kind: "chip", from: i })}
-                  onPointerMove={onSeqPointerMove} onPointerUp={onSeqPointerUp}
-                  onPointerCancel={onSeqPointerCancel}
-                  style={{ cursor:"grab", touchAction:"pan-x", userSelect:"none" }}>
+                <span>
                   {/* The flat glyph (♭) ascends well above cap height and would
                       make its chip taller than the others; drawing the
                       accidental smaller keeps every chip the same height. */}
@@ -4647,9 +4677,16 @@ export default function HarpGliss() {
                     return <>{s.oct}{s.letter}{acc && <span style={{ fontSize:"0.78em" }}>{acc}</span>}</>;
                   })()}
                 </span>
-                <button onClick={() => removeAt(i)} title="Remove"
+                {/* Quick tap deletes; a press that turned into a drag set
+                    suppressClick, so grabbing the chip here can't delete it. */}
+                <button title="Remove"
+                  onClick={e => {
+                    e.stopPropagation(); // don't also move the caret to this chip
+                    if (suppressClickRef.current) { suppressClickRef.current = false; return; }
+                    removeAt(i);
+                  }}
                   style={{ border:"none", background:"none", cursor:"pointer", color:t.grnTx3,
-                    fontSize:13, lineHeight:1, padding:"0 1px" }}>×</button>
+                    fontSize:13, lineHeight:1, padding:"0 2px" }}>×</button>
               </span>
             );
             chips.push(caret(i + 1));
@@ -4665,7 +4702,7 @@ export default function HarpGliss() {
                   ? <span style={{ fontSize:12, color:t.text5, fontStyle:"italic", whiteSpace:"nowrap" }}>Tap notes to build a sequence</span>
                   : chips}
               </div>
-              <button onClick={backspaceSeq} disabled={caretPos === 0} title="Delete before caret"
+              <button onClick={backspaceSeq} disabled={caretPos === 0} title="Delete the note before the caret"
                 style={{ ...btn(false), fontSize:14, padding:"4px 9px", opacity: caretPos === 0 ? 0.4 : 1,
                   cursor: caretPos === 0 ? "default" : "pointer" }}>⌫</button>
               <button onClick={clearSeq} disabled={customSeq.length === 0}
