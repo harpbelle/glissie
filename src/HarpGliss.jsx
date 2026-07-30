@@ -2338,9 +2338,16 @@ export default function HarpGliss() {
 
   function getAudio() {
     if (!audioRef.current) {
-      // latencyHint "interactive" asks for the smallest buffer the device can
-      // sustain, so a Live tap sounds as promptly as possible.
-      const ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: "interactive" });
+      // Desktop gets "interactive" (smallest buffer, promptest Live taps).
+      // Touch devices get a modestly larger fixed buffer instead: the
+      // smallest buffer is exactly what starves into crackle when a busy
+      // phone can't feed the audio thread in time, and a phone's output
+      // latency (20–40 ms) already dwarfs the difference, so the robustness
+      // is close to free there.
+      const coarse = window.matchMedia && matchMedia("(pointer: coarse)").matches;
+      const ctx = new (window.AudioContext || window.webkitAudioContext)({
+        latencyHint: coarse ? 0.025 : "interactive",
+      });
       // iOS 16.4+: request the "playback" audio session so output is NOT silenced
       // by the phone's physical mute/ringer switch (the default "ambient" session
       // is). No-op where unsupported (desktop, older Safari, Chrome, Firefox).
@@ -2542,7 +2549,19 @@ export default function HarpGliss() {
     const targetMidi = s.midi + acc + (harm ? 12 : 0);
     const isGliss = mode === "gliss";
     const vol = (isGliss ? Math.min(0.55, 1.6 / Math.sqrt(speedRef.current)) : 0.5) * volMul;
-    const t = when != null ? when : ctx.currentTime; // audio-clock start time for this note
+    // Audio-clock start time. A live tap must NOT schedule at exactly
+    // currentTime: the automation events hop from the main thread to the
+    // audio thread, and by the time they arrive the clock has moved past t —
+    // more so on a phone, where the tap's own re-render (flash/ring state)
+    // stalls dispatch. Past-dated events are clamped, which collapses the
+    // 3 ms attack ramp into a step: one small click per tap, a crackle like
+    // static under fast random tapping (Live only; scheduled playback always
+    // runs LOOKAHEAD ahead). Touch devices need more lead than desktop: their
+    // context uses a larger buffer (see getAudio), so the audio thread renders
+    // further ahead and events must be dated past that. Both leads sit far
+    // below tap-latency perception — phone output latency alone exceeds them.
+    const LIVE_LEAD = ctx.baseLatency ? Math.max(0.015, ctx.baseLatency + 0.01) : 0.02;
+    const t = when != null ? when : ctx.currentTime + LIVE_LEAD;
 
     const bufs = harm ? samplesRef.current.harmBuffers
       : xylo ? samplesRef.current.xyloBuffers
