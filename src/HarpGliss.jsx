@@ -2344,9 +2344,15 @@ export default function HarpGliss() {
       // phone can't feed the audio thread in time, and a phone's output
       // latency (20–40 ms) already dwarfs the difference, so the robustness
       // is close to free there.
+      // 0.04 is the deliberate endpoint of this dial (0.025 still crackled
+      // occasionally). Beyond it the latency trade turns bad, and what's left
+      // is the platform floor: browser audio on a phone misses the odd
+      // deadline (CPU scaling, GC, thermal) and the web API exposes no
+      // underrun counter to chase it with. Accept the rare crackle rather
+      // than rebuild the engine as an AudioWorklet.
       const coarse = window.matchMedia && matchMedia("(pointer: coarse)").matches;
       const ctx = new (window.AudioContext || window.webkitAudioContext)({
-        latencyHint: coarse ? 0.025 : "interactive",
+        latencyHint: coarse ? 0.04 : "interactive",
       });
       // iOS 16.4+: request the "playback" audio session so output is NOT silenced
       // by the phone's physical mute/ringer switch (the default "ambient" session
