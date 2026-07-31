@@ -1588,15 +1588,34 @@ function onsetsOf(entries) {
 // treated as one zone; that boundary's timbre change is minor.
 const WIRE_HI_IDX = IDX["5G"];   // highest wire string index
 const WIRE_SAMPLE_MAX = 43;      // string-pitch keys <= this are wire recordings
+// Second boundary, PLUCK BANK ONLY: string MATERIAL again, for the same reason
+// as wire/gut. Yijun's 5A♭ and 5C♭ are Savarez Alliance KF; VCSL 55 is very
+// likely gut, so 44/47 against 55 is a material change, not merely a different
+// instrument — audibly the same class of seam the wire/gut split exists to
+// keep off a single string. Left to nearest pitch alone it would land mid-
+// string: 5E♭ and 5D# are the same sounding pitch and equidistant from both
+// samples, so they collapsed onto one recording and 5E♭ came out 4 semitones
+// up from KF while the 5E natural beside it was gut — Yijun heard that plainly.
+// Splitting by STRING puts the seam at 5D|5E, exactly as the wire/gut boundary
+// separates 5G# from 5A♭: 5D# keeps Yijun's 5C♭, 5E♭ takes VCSL 55 alongside
+// its own 5E. Nothing is lost in pitch terms — both were the same 4-semitone
+// shift. ⚠ The self-recorded technique banks are one harp with one set of
+// strings, so this boundary must NOT apply to them (Yijun's call).
+const KF_HI_IDX = IDX["5D"];     // highest string served by Yijun's KF pluck notes
+const KF_SAMPLE_MAX = 47;        // ...and the highest key of those notes
+// Boundary lists per bank. Each entry is [last string index below the split,
+// last sample key below the split]; a sample may serve a string only if it
+// falls on the same side of EVERY boundary the bank declares.
+const SPLITS_ONE_HARP = [[WIRE_HI_IDX, WIRE_SAMPLE_MAX]];
+const SPLITS_PLUCK = [[WIRE_HI_IDX, WIRE_SAMPLE_MAX], [KF_HI_IDX, KF_SAMPLE_MAX]];
 // Nearest recorded sample to `target`, restricted to the played string's
-// material zone. keyOffset lets banks whose keys are the *sounding* pitch
-// (harmonics: an octave above the string) shift the split accordingly.
-function pickSample(table, target, idx, keyOffset) {
-  const wire = idx <= WIRE_HI_IDX;
-  const thr = WIRE_SAMPLE_MAX + keyOffset;
+// zone. keyOffset lets banks whose keys are the *sounding* pitch (harmonics:
+// an octave above the string) shift the splits accordingly.
+function pickSample(table, target, idx, keyOffset, splits = SPLITS_ONE_HARP) {
   let best = null;
   for (const m of table) {
-    if ((m <= thr) !== wire) continue;           // same-zone samples only
+    // same-zone samples only, on every boundary this bank declares
+    if (!splits.every(([hiIdx, hiKey]) => (m <= hiKey + keyOffset) === (idx <= hiIdx))) continue;
     if (best === null || Math.abs(m - target) < Math.abs(best - target)) best = m;
   }
   if (best !== null) return best;
@@ -1870,7 +1889,15 @@ const SCALE_SPEED_CAP = { harm: 4, xylo: 4, pdlt: 4, nail: 4, etouf: 4 };
 // 300 ms window (what the ear judges in a run, rather than the full decay).
 // Keyed by sample midi; applies only to the default pluck bank — the
 // self-recorded banks were level-matched as a set during processing.
-const HARP_TRIMS = { 62: 1.3, 69: 2.6, 76: 0.9, 83: 1.15 };
+// 44 and 47 are the two self-recorded notes that replaced VCSL 48 (see
+// samples/harp.js). They are peak-normalised to −0.3 dB, which is hotter than
+// VCSL's ~0.8 peaks, yet they still measured 2.9 dB (44) and 1.1-1.3 dB (47)
+// BELOW what 48 delivered to the same strings — peak says nothing about body.
+// These trims put the loudness contour of 5A-5D back exactly where 48 left it
+// (within 0.15 dB), so the swap changes attack and timbre only. Deliberately
+// not used to also flatten the pre-existing +2.1 dB step at 5G→5A: that step
+// comes from sample 41 and predates this change.
+const HARP_TRIMS = { 44: 1.4, 47: 1.15, 62: 1.3, 69: 2.6, 76: 0.9, 83: 1.15 };
 // Technique picker options, in 2×3 reading order (top row first). Gliss
 // offers only the gliss-suitable techniques, with the pluck bank labelled
 // "Single" (a glissando isn't plucked note-by-note).
@@ -2607,7 +2634,9 @@ export default function HarpGliss() {
       const bank = eBufs || bufs;
       const table = eBufs ? ETOUFFE_MIDIS : SAMPLE_MIDIS;
       if (bank) {
-        const best = pickSample(table, targetMidi, idx, 0); // zone-locked (étouffé sounds at string pitch)
+        // zone-locked (étouffé sounds at string pitch). Étouffé is one harp
+        // throughout, so only the wire/gut boundary applies.
+        const best = pickSample(table, targetMidi, idx, 0, SPLITS_ONE_HARP);
         const rate = (tuningRef.current / 440) * Math.pow(2, (targetMidi - best) / 12);
         const src = ctx.createBufferSource();
         src.buffer = bank[best];
@@ -2644,8 +2673,11 @@ export default function HarpGliss() {
       const table = harm ? HARMONIC_MIDIS : xylo ? XYLOPHONIC_MIDIS
         : pdlt ? PDLT_MIDIS : nail ? NAIL_MIDIS : SAMPLE_MIDIS;
       // Zone-locked pick so the wire/gut boundary at 5G|5A is respected
-      // (harmonic keys sound an octave above the string, hence the +12).
-      const best = pickSample(table, targetMidi, idx, harm ? 12 : 0);
+      // (harmonic keys sound an octave above the string, hence the +12). The
+      // pluck bank adds a second boundary at 5D|5E — it is the only bank that
+      // mixes two harps (see SPLITS_PLUCK).
+      const best = pickSample(table, targetMidi, idx, harm ? 12 : 0,
+        tech === "default" ? SPLITS_PLUCK : SPLITS_ONE_HARP);
       const rate = (tuningRef.current / 440) * Math.pow(2, (targetMidi - best) / 12);
       const src = ctx.createBufferSource();
       src.buffer = bufs[best];
