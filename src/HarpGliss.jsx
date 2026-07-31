@@ -1860,6 +1860,17 @@ const techRange = tech => TECH_RANGE[tech] || [0, 46];
 // Scale/Arpeggio play-speed ceiling (notes/s) for the self-recorded sample
 // techniques; unlisted techniques keep the normal 20 notes/s slider maximum.
 const SCALE_SPEED_CAP = { harm: 4, xylo: 4, pdlt: 4, nail: 4, etouf: 4 };
+// Per-sample gain trims for the VCSL pluck bank. VCSL normalized PEAKS (all
+// ~0.8) rather than energy, so the recordings are audibly uneven: sample 69 is
+// weak in both attack and body (0-200 ms RMS 0.166 and 0.2-1 s 0.047, against
+// ~0.29 / ~0.13 for 62 and 76 either side) while 76 and 83 are hot. Since 69
+// serves strings 3G-3C and 76 serves 3D/3E, that produced a 4.6 dB step right
+// at 3C→3D — the seam Yijun heard as "everything from 3D up is louder".
+// These trims flatten the mid register to a 1.6 dB worst step, measured on a
+// 300 ms window (what the ear judges in a run, rather than the full decay).
+// Keyed by sample midi; applies only to the default pluck bank — the
+// self-recorded banks were level-matched as a set during processing.
+const HARP_TRIMS = { 62: 1.3, 69: 2.6, 76: 0.9, 83: 1.15 };
 // Technique picker options, in 2×3 reading order (top row first). Gliss
 // offers only the gliss-suitable techniques, with the pluck bank labelled
 // "Single" (a glissando isn't plucked note-by-note).
@@ -2639,9 +2650,11 @@ export default function HarpGliss() {
       const src = ctx.createBufferSource();
       src.buffer = bufs[best];
       src.playbackRate.value = rate;
+      // Level-match an out-of-step recording in the pluck bank (see HARP_TRIMS).
+      const vol2 = vol * (tech === "default" ? (HARP_TRIMS[best] || 1) : 1);
       const g = ctx.createGain();
       g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(vol, t + 0.003); // declick only; the 4 ms
+      g.gain.linearRampToValueAtTime(vol2, t + 0.003); // declick only; the 4 ms
       // of run-in left by bufferOnset means this ramp finishes before the
       // attack, so the transient stays sharp instead of being smoothed off.
       // Sostenuto length, live-tunable per mode via the sound panel.
@@ -2651,7 +2664,7 @@ export default function HarpGliss() {
         ? Math.max(0.18, noteGap * tailRef.current)
         : Math.max(0.18, tailRef.current);
       const fade = Math.min(0.4, tail * 0.45);
-      g.gain.setValueAtTime(vol, t + tail - fade);
+      g.gain.setValueAtTime(vol2, t + tail - fade);
       g.gain.exponentialRampToValueAtTime(0.0001, t + tail);
       src.connect(g); g.connect(dest);
       // Skip the measured in-buffer lead-in so the attack lands on the tap
